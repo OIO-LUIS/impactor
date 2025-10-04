@@ -26,7 +26,7 @@ To run the project locally:
 1. Install required dependencies with Bundler:  
    ```bash bundle install
 
-2. Set up the database:
+2. Set up the database:   
 rails db:create
 rails db:migrate
 rails db:seed
