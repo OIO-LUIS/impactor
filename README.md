@@ -23,8 +23,8 @@ This repository contains the core files and configuration for the **Impactor** p
 
 To run the project locally:
 
-1. Install required dependencies with Bundler:  
-   ```bash bundle install
+1. Install required dependencies with Bundler:
+   bundle install
 
 2. Set up the database:   
 rails db:create
