@@ -1,0 +1,22 @@
+<!-- app/views/layouts/_navbar.html.erb -->
+<nav class="nav" role="navigation" aria-label="Main">
+  <div class="nav__inner">
+    <!-- Brand / Home -->
+    <%= link_to root_path, class: "brand-link", "aria-label": "Back to Home" do %>
+      🌍 <span class="brand-text">Meteor Madness</span>
+    <% end %>
+
+
+    <!-- Language selector -->
+    <div class="lang-switcher">
+      <label for="locale" class="lang-label"><%= t("app.language", default: "Language") %></label>
+      <%= select_tag :locale,
+            options_for_select([["EN","en"],["ES","es"],["PT","pt"],["FR","fr"]], I18n.locale),
+            data: { base: url_for(locale: "LOCALE") },
+            onchange: "location.href = this.dataset.base.replace('LOCALE', this.value)",
+            class: "lang-select" %>
+
+    </div>
+
+  </div>
+</nav>

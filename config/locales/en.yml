@@ -26,6 +26,233 @@
 #     en:
 #       "yes": yup
 #       enabled: "ON"
-
 en:
-  hello: "Hello world"
+  app:
+    language: "Language"
+    footer: "Astro kitties"
+
+  home:
+    hero:
+      eyebrow: "NASA Space Apps 2025"
+      title_html: "Explore impacts <span class=\"gradient-text\">&amp; defend Earth</span>"
+      subtitle: "Simulate scenarios, estimate consequences, and test mitigation strategies using real NASA & USGS data."
+    cards:
+      aria: "Main actions"
+      sim:
+        pill: "SIM"
+        status: "Live"
+        title: "Impact Simulation"
+        desc: "Set size, velocity, and impact point. Get energy, crater size, and shockwave rings."
+        cta: "Start →"
+        aria_open: "Open Impact Simulation"
+      mit:
+        pill: "MIT"
+        status: "Game"
+        title: "Mitigation (Gaming)"
+        desc: "Apply along-track Δv with lead time and see if you can deflect Impactor-2025."
+        cta: "Play →"
+        aria_open: "Open Mitigation/Gaming"
+      learn:
+        pill: "LEARN"
+        status: "Soon"
+        title: "Learn & Explore"
+        desc: "Key concepts: orbital elements, impact energy, and the NASA/USGS datasets behind the tool."
+        cta: "Coming soon"
+        aria_open: "Open Learn & Explore (coming soon)"
+
+  game:
+    title: "Mitigation Quiz"
+    subtitle: "Answer 10 questions under pressure. Learn real science behind asteroid impacts & defenses."
+    start: "Play →"
+    ui:
+      title: "Mitigation Quiz"
+      brief: "Answer 10 science-grounded questions about asteroid impacts and defenses."
+      rules: "You have 25s per question. Faster = more points. Scientific feedback at the end."
+      play_now: "Start"
+      progress: "Question %{idx} of %{total}"
+      score: "Score"
+      choose_action: "Choose your action"
+      choose_cta: "Choose"
+      summary_title: "Mission Summary"
+      final_score: "Final score"
+      correct: "Correct"
+      level:
+        novice: "Level: Novice"
+        intermediate: "Level: Intermediate"
+        advanced: "Level: Advanced"
+        expert: "Level: Expert"
+      review: "Review your answers"
+      difficulty: "Difficulty"
+      your_answer: "Your answer"
+      correct_yes: "Correct"
+      correct_no: "Incorrect"
+      time: "Time"
+      retry: "Play again"
+      back_home: "Back to Home"
+      no_questions: "Question bank is empty. Please add questions."
+      restarted: "Session restarted."
+      no_current_question: "No question available."
+    q:
+      energy:
+        prompt: "A ~120 m, ρ≈3000 kg/m³ object at 20 km/s releases roughly…?"
+
+  game_data:
+    scenarios:
+      - id: "s1"
+        title: "120 m asteroid, 5 days to impact"
+        desc: "Approach near a city of 1M people."
+        population: 1000000
+        options:
+          - key: evacuate
+            label: "Evacuate 40% of population"
+            effects:
+              saved_pct: 0.40
+              cost_billion: 8
+          - key: deflect
+            label: "Attempt Δv deflection now"
+            effects:
+              success_prob: 0.15
+              saved_on_success_pct: 0.95
+              saved_on_fail_pct: 0.10
+              cost_billion: 2
+          - key: shelters
+            label: "Build shelters"
+            effects:
+              saved_pct: 0.55
+              cost_billion: 4
+
+    questions:
+      - id: q_kepler_01
+        type: "concept"
+        difficulty: 2
+        tags: ["orbit","kepler"]
+        prompt: "Which element mainly sets the ellipse size?"
+        choices:
+          - { key: a,  label: "Semi-major axis (a)", correct: true }
+          - { key: e,  label: "Eccentricity (e)" }
+          - { key: i,  label: "Inclination (i)" }
+          - { key: H,  label: "Absolute magnitude (H)" }
+        feedback:
+          a: "Correct. a sets overall size; e sets shape."
+          default: "a is the size; e is shape; i is tilt; H is brightness."
+
+      - id: q_energy_02
+        type: "calc"
+        difficulty: 3
+        tags: ["impact","energy"]
+        params:
+          diameter_m: 120
+          density_kg_m3: 3000
+          velocity_km_s: 20
+        prompt_i18n: "game.q.energy.prompt"
+        choices:
+          - { key: c1, label: "~1e16 J" }
+          - { key: c2, label: "~1e18 J", correct: true }
+          - { key: c3, label: "~1e20 J" }
+        feedback:
+          correct: "E≈1/2 m v^2 with m from density & volume."
+          wrong:   "Check units: v in m/s, m in kg."
+
+      - id: q_inclination_03
+        type: "concept"
+        difficulty: 1
+        tags: ["orbit"]
+        prompt: "Inclination (i) is measured relative to the…"
+        choices:
+          - { key: ecliptic, label: "Ecliptic plane", correct: true }
+          - { key: equator,  label: "Earth's equator" }
+          - { key: meridian, label: "Local meridian" }
+        feedback:
+          ecliptic: "Correct: i uses the ecliptic as the reference plane."
+          default: "Inclination is referenced to the ecliptic."
+
+      - id: q_tnt_05
+        type: "calc"
+        difficulty: 2
+        tags: ["impact","energy"]
+        prompt: "1 kiloton TNT ≈ 4.184×10^12 J. ~1e18 J is about…"
+        choices:
+          - { key: 200kt,    label: "~200 kt" }
+          - { key: 20000kt,  label: "~20,000 kt (20 Mt)", correct: true }
+          - { key: 2kt,      label: "~2 kt" }
+        feedback:
+          correct: "~1e18 J ≈ 2.4×10^5 kt ≈ 240 Mt; order-of-magnitude answer around tens of Mt."
+          default: "Convert Joules to kt via 4.184e12 J per kt."
+
+      - id: q_delta_v_06
+        type: "scenario"
+        difficulty: 4
+        tags: ["mitigation","delta-v"]
+        prompt: "With ~5 years lead time, Δv of a few mm/s yields a miss distance on the order of…"
+        choices:
+          - { key: meters,    label: "Meters" }
+          - { key: kilometers,label: "Kilometers", correct: true }
+          - { key: microns,   label: "Micrometers" }
+        feedback:
+          kilometers: "Small Δv × years accumulates to thousands of km."
+          default: "Long lead times amplify tiny Δv."
+
+      - id: q_albedo_07
+        type: "concept"
+        difficulty: 2
+        tags: ["photometry"]
+        prompt: "Absolute magnitude (H) together with albedo is used to estimate…"
+        choices:
+          - { key: size,  label: "Size/diameter", correct: true }
+          - { key: mass,  label: "Mass directly" }
+          - { key: speed, label: "Orbital speed" }
+        feedback:
+          size: "H+albedo → diameter; mass needs density assumptions."
+          default: "H is brightness; albedo enables size inference."
+
+      - id: q_density_08
+        type: "calc"
+        difficulty: 3
+        tags: ["density","mass"]
+        prompt: "A 200 m rocky body (ρ≈3000 kg/m³): the mass is roughly…"
+        choices:
+          - { key: e10, label: "~1e10 kg" }
+          - { key: e11, label: "~1e11 kg" }
+          - { key: e13, label: "~1e13 kg", correct: true }
+        feedback:
+          correct: "Volume ~(4/3)π(100 m)^3 ≈ 4.19e6 m³; m≈ρV → high 10^12–10^13 kg."
+          default: "Order-of-magnitude suffices."
+
+      - id: q_evac_09
+        type: "scenario"
+        difficulty: 2
+        tags: ["mitigation","evac"]
+        prompt: "Coastal city, low elevation; 3 days warning. Biggest victim reduction typically from:"
+        choices:
+          - { key: shelters, label: "Build shelters now" }
+          - { key: evac,     label: "Evacuate vulnerable zones", correct: true }
+          - { key: nothing,  label: "Do nothing" }
+        feedback:
+          evac: "Short notice favors targeted evacuation."
+          default: "Logistics vs speed trade-off."
+
+      - id: q_entry_angle_10
+        type: "concept"
+        difficulty: 3
+        tags: ["entry"]
+        prompt: "Shallower atmospheric entry angles tend to…"
+        choices:
+          - { key: airburst, label: "Increase airburst likelihood", correct: true }
+          - { key: bounce,   label: "Guarantee skipping back to space" }
+          - { key: crater,   label: "Always create larger craters" }
+        feedback:
+          airburst: "Shallow entries deposit more energy in air; outcome varies."
+          default: "Entry geometry shapes deposition."
+
+      - id: q_fragmentation_11
+        type: "concept"
+        difficulty: 2
+        tags: ["entry","materials"]
+        prompt: "Compared to iron asteroids, stony objects are generally more likely to:"
+        choices:
+          - { key: frag, label: "Fragment/airburst in the atmosphere", correct: true }
+          - { key: deny, label: "Deny ablation" }
+          - { key: none, label: "Be unaffected by entry" }
+        feedback:
+          frag: "Material strength matters; stony bodies fragment more readily."
+          default: "Composition influences entry behavior."
