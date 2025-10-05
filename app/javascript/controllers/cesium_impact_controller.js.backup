@@ -1,0 +1,3492 @@
+// ============================================================================
+// CESIUM IMPACT CONTROLLER - NASA Asteroid Impact Simulator
+// ============================================================================
+//
+// PURPOSE:
+// This Stimulus controller provides 3D visualization for asteroid impact
+// simulations using Three.js. It handles:
+// 1. Rendering a realistic Earth with geography
+// 2. Visualizing meteor trajectory from space to impact
+// 3. Displaying physics-based damage rings
+// 4. Providing interactive timeline and camera controls
+//
+// ARCHITECTURE OVERVIEW:
+// - Frontend (this file): Visualization only - trajectory interpolation, 3D rendering
+// - Backend (Physics::Engine): All physics calculations - entry, blast, crater, etc.
+//
+// DATA FLOW:
+// User Form → POST /simulate → Physics::Engine → JSON Response → This Controller → 3D Visualization
+//
+// PARAMETERS SENT TO BACKEND (see simulate()):
+// - diameter_m: Impactor diameter in meters
+// - density_kg_m3: Impactor density in kg/m³
+// - velocity_kms: Approach velocity in km/s
+// - impact_angle_deg: Impact angle from horizontal (5-90°)
+// - azimuth_deg: Approach direction (0° = North, 90° = East)
+// - lat, lng: Impact coordinates
+// - strength_mpa: Material strength in MPa (for airburst calculation)
+// - ocean_depth_m: Ocean depth if applicable
+// - mitigation_type: Deflection/disruption strategy
+//
+// RESPONSE FROM BACKEND (see processSimulationData()):
+// - results: { energy_megatons_tnt, mode (airburst/ground), crater dimensions,
+//              damage radii, thermal/seismic/tsunami effects, threat assessment }
+// - rings: [ { radius_km, color, label, type }, ... ] - Damage zone circles
+// - entry_track: [ { lat, lng, altitude_km, velocity_kms, mass_fraction }, ... ]
+// - timeline: Event sequence with timestamps
+// - visualization: Additional rendering data
+//
+// PHYSICS MODULES USED (Backend - app/services/physics/):
+// - Entry: Atmospheric entry, drag, airburst detection
+// - Blast: Overpressure and blast wave calculations
+// - Crater: Transient/final crater dimensions
+// - Thermal: Thermal radiation effects
+// - Seismic: Ground shaking (ground impacts only)
+// - Atmospheric: Dust, climate effects
+// - Ejecta: Impact debris distribution
+// - Tsunami: Ocean impact wave modeling
+// - Mitigation: Deflection strategy effectiveness
+//
+// ============================================================================
+
+import { Controller } from "@hotwired/stimulus"
+import { post } from "@rails/request.js"
+import * as THREE from "three"
+import { OrbitControls } from "OrbitControls"
+import { feature } from "topojson-client"
+
+// ============================================================================
+// MODULAR ARCHITECTURE - Import specialized visualization modules
+// ============================================================================
+import { ThreeJSUtils } from "../services/impact_visualization/three_js_utils.js"
+import { OrbitalMechanicsCalculator } from "../services/impact_visualization/orbital_mechanics_calculator.js"
+import { HeliocentricViewManager } from "../services/impact_visualization/heliocentric_view_manager.js"
+import { GeocentricViewManager } from "../services/impact_visualization/geocentric_view_manager.js"
+import { ImpactVisualizer } from "../services/impact_visualization/impact_visualizer.js"
+import { TimelineController } from "../services/impact_visualization/timeline_controller.js"
+
+export default class extends Controller {
+  // ============================================================================
+  // STIMULUS CONFIGURATION
+  // ============================================================================
+
+  static targets = [
+    // Rendering
+    "cesiumContainer",
+
+    // Form controls
+    "form","simulateBtn","simCount","threatLevel",
+
+    // Input parameters (these map directly to Physics::Engine params)
+    "diameterInput",     // diameter_m
+    "velocityInput",     // velocity_kms
+    "angleInput",        // impact_angle_deg
+    "orbitalInput",      // orbital elements data (JSON)
+    "azimuthInput",      // azimuth_deg
+    "latInput",          // lat
+    "lngInput",          // lng
+    "densityInput",      // density_kg_m3
+    "strengthInput",     // strength_mpa
+    "orbitalInput",      // orbital_data (Keplerian elements JSON)
+
+    // Timeline controls
+    "metrics","timeline","playBtn","timelineProgress",
+    "timelineHandle","timeStart","timeEnd",
+
+    // Results display (populated from backend response)
+    "energyValue",       // results.energy_megatons_tnt
+    "craterValue",       // results.final_crater_d_m
+    "modeValue",         // results.mode (airburst vs ground)
+    "vaporizationValue", // results.vaporization_radius_km
+    "thermalValue",      // results.thermal_radiation_radius_km
+    "blastValue",        // results.severe_blast_radius_km
+    "tsunamiValue"       // results.tsunami_100km_m
+  ]
+
+  static values = {
+    particleUrl: String,
+    smokeUrl: String,
+    worldUrl: String
+  }
+
+  // ============================================================================
+  // LIFECYCLE: INITIALIZATION
+  // ============================================================================
+
+  /**
+   * Stimulus connect() - Called when controller is attached to DOM
+   * Sets up the entire 3D scene, Earth rendering, and event handlers
+   */
+  connect() {
+    console.log("🚀 Cesium Impact Controller: Initializing...")
+
+    // Initialize scales FIRST (before any setup methods)
+    this.EARTH_R = 6_371_000  // Earth radius in meters (for geocentric view)
+
+    // View modes
+    this.VIEW_MODES = {
+      HELIOCENTRIC: 'heliocentric',  // Sun-centered orbital view (default)
+      GEOCENTRIC: 'geocentric'        // Earth-centered impact view
+    }
+
+    // Heliocentric view scales (using proportional but visible scales)
+    this.AU = 149_597_870.7     // 1 AU in km
+    this.SCENE_SCALE = 1000000  // 1 scene unit = 1 million km
+    this.SUN_R_ACTUAL = 696_000 // Sun radius in km
+    this.SUN_R_VISUAL = 0.1 * this.AU  // Visual sun size (10% of AU for visibility - increased)
+    this.EARTH_R_VISUAL = 0.05 * this.AU  // Visual earth size (5% of AU for visibility - increased)
+
+    // Initialize view state
+    this.currentView = this.VIEW_MODES.HELIOCENTRIC  // Start with orbital view
+    this.viewTransitioning = false
+
+    this.resetState()
+    this.setupRenderer()
+    this.setupScene()
+    this.setupCamera()
+    this.setupLighting()
+
+    // ============================================================================
+    // Initialize modular visualization components
+    // ============================================================================
+    this.initializeModules()
+
+    // Setup appropriate view
+    if (this.currentView === this.VIEW_MODES.HELIOCENTRIC) {
+      this.setupHeliocentricView()
+    } else {
+      this.setupEarth()
+      this.loadGeography()
+    }
+
+    this.animate = this.animate.bind(this)
+    this.renderer.setAnimationLoop(this.animate)
+    this.setupEventListeners()
+
+    console.log("✅ Cesium Impact Controller: Ready")
+  }
+
+  /**
+   * Reset all simulation state variables
+   * Called on initialization and when starting a new simulation
+   */
+  resetState() {
+    this.simCount = 0
+    this.playing = false
+    this.simulationTime = 0
+    this.simulationDuration = 30000 // 30 seconds total playback
+    this.impactTime = 25000 // Impact occurs at 25 seconds
+
+    // Trajectory data (calculated in processSimulationData)
+    this.trajectory = []
+
+    // Three.js objects
+    this.meteorObject = null
+    this.trailLine = null
+    this.impactOccurred = false
+    this.damageRings = []
+    this.infoOverlays = []
+
+    // Animation state
+    this.clock = new THREE.Clock()
+    this.cameraFollowing = false
+
+    // Geography data
+    this.countryData = null
+    this.hoveredCountry = null
+  }
+
+  // ============================================================================
+  // THREE.JS SETUP: RENDERING
+  // ============================================================================
+
+  /**
+   * Initialize WebGL renderer with optimized settings
+   * Creates the canvas element and appends to DOM
+   */
+  setupRenderer() {
+    const container = this.cesiumContainerTarget
+    this.renderer = new THREE.WebGLRenderer({
+      antialias: true,
+      powerPreference: "high-performance",
+      alpha: false
+    })
+    this.renderer.setPixelRatio(Math.min(window.devicePixelRatio, 1.5))
+    this.renderer.setSize(container.clientWidth, container.clientHeight)
+    this.renderer.setClearColor(0x000000)
+    container.appendChild(this.renderer.domElement)
+
+    // Create tooltip for country hover
+    this.tooltip = document.createElement('div')
+    this.tooltip.style.cssText = `
+      position: absolute;
+      background: rgba(0, 0, 0, 0.8);
+      color: white;
+      padding: 5px 10px;
+      border-radius: 4px;
+      font-size: 12px;
+      pointer-events: none;
+      display: none;
+      z-index: 1000;
+    `
+    container.appendChild(this.tooltip)
+
+    console.log("🎨 Renderer initialized:", container.clientWidth, "x", container.clientHeight)
+  }
+
+  /**
+   * Create Three.js scene with starfield background
+   * Stars are distributed in a sphere using spherical coordinates
+   */
+  setupScene() {
+    this.scene = new THREE.Scene()
+
+    // Only add fog for geocentric view
+    if (this.currentView === this.VIEW_MODES.GEOCENTRIC) {
+      this.scene.fog = new THREE.Fog(0x000011, this.EARTH_R * 2, this.EARTH_R * 20)
+
+      // Enhanced starfield with varying brightness and colors (for geocentric)
+      const starsGeometry = new THREE.BufferGeometry()
+      const starPositions = []
+      const starColors = []
+      const starCount = 10000
+
+      for (let i = 0; i < starCount; i++) {
+        // Spherical distribution (uniform on sphere surface)
+        const theta = Math.random() * Math.PI * 2  // Azimuthal angle
+        const phi = Math.acos(2 * Math.random() - 1)  // Polar angle (uniform distribution)
+        const r = this.EARTH_R * (30 + Math.random() * 70)
+
+      // Convert spherical to Cartesian coordinates
+      starPositions.push(
+        r * Math.sin(phi) * Math.cos(theta),
+        r * Math.sin(phi) * Math.sin(theta),
+        r * Math.cos(phi)
+      )
+
+      // Vary star colors (yellowish, white, bluish) based on stellar temperatures
+      const intensity = 0.5 + Math.random() * 0.5
+      const temp = Math.random()
+      if (temp < 0.3) {
+        starColors.push(intensity, intensity * 0.95, intensity * 0.9) // Yellowish (cooler stars)
+      } else if (temp < 0.7) {
+        starColors.push(intensity, intensity, intensity) // White
+      } else {
+        starColors.push(intensity * 0.9, intensity * 0.95, intensity) // Bluish (hotter stars)
+      }
+    }
+
+    starsGeometry.setAttribute('position', new THREE.Float32BufferAttribute(starPositions, 3))
+    starsGeometry.setAttribute('color', new THREE.Float32BufferAttribute(starColors, 3))
+
+    const starsMaterial = new THREE.PointsMaterial({
+      size: 150,
+      vertexColors: true,
+      sizeAttenuation: false
+    })
+      this.stars = new THREE.Points(starsGeometry, starsMaterial)
+      this.scene.add(this.stars)
+
+      console.log("🌌 Scene created with", starCount, "stars")
+    } else {
+      // For heliocentric view, we'll add stars in setupHeliocentricView
+      console.log("🎬 Scene created for heliocentric view")
+    }
+
+    // Set background color
+    this.scene.background = new THREE.Color(0x000011)  // Very dark space
+  }
+
+  /**
+   * Setup camera and orbit controls
+   * PerspectiveCamera mimics human eye perspective
+   * OrbitControls allow user to rotate/zoom around Earth
+   */
+  setupCamera() {
+    const container = this.cesiumContainerTarget
+
+    // Different camera settings for different views
+    if (this.currentView === this.VIEW_MODES.HELIOCENTRIC) {
+      // Heliocentric view needs different near/far planes
+      const sceneSize = this.AU / this.SCENE_SCALE * 3  // 3 AU viewing distance
+      this.camera = new THREE.PerspectiveCamera(
+        45,  // Field of view
+        container.clientWidth / container.clientHeight,
+        0.1,  // Near clipping plane (closer for space view)
+        sceneSize * 100  // Far clipping plane (much farther for space)
+      )
+
+      // Position will be set by setupOrbitalCamera
+      console.log("📷 Camera setup for heliocentric view")
+    } else {
+      // Geocentric view camera
+      this.camera = new THREE.PerspectiveCamera(
+        45,  // Field of view
+        container.clientWidth / container.clientHeight,
+        1000,  // Near clipping plane
+        this.EARTH_R * 100  // Far clipping plane
+      )
+      this.camera.position.set(0, this.EARTH_R * 2, this.EARTH_R * 3)
+      console.log("📷 Camera setup for geocentric view")
+    }
+
+    this.controls = new OrbitControls(this.camera, this.renderer.domElement)
+    this.controls.enableDamping = true
+    this.controls.dampingFactor = 0.05
+
+    // Controls will be further configured by view-specific setup methods
+
+    console.log("📷 Camera initialized")
+  }
+
+  /**
+   * Add lighting to scene
+   * - Directional light simulates the Sun
+   * - Ambient light ensures visibility on dark side
+   * - Hemisphere light creates atmospheric effect
+   */
+  setupLighting() {
+    // Sun light with shadows for depth
+    const sunLight = new THREE.DirectionalLight(0xffffff, 1.5)
+    sunLight.position.set(this.EARTH_R * 5, this.EARTH_R * 3, this.EARTH_R * 2)
+    this.scene.add(sunLight)
+
+    // Ambient light for visibility
+    const ambientLight = new THREE.AmbientLight(0x404060, 0.4)
+    this.scene.add(ambientLight)
+
+    // Hemisphere light for Earth atmosphere effect
+    const hemiLight = new THREE.HemisphereLight(0x4488ff, 0x224488, 0.3)
+    this.scene.add(hemiLight)
+
+    console.log("💡 Lighting configured")
+  }
+
+  /**
+   * Initialize all modular visualization components
+   * Called after scene, camera, and renderer are set up
+   */
+  initializeModules() {
+    console.log("🔧 Initializing visualization modules...")
+
+    // Orbital mechanics calculator
+    this.orbitalMech = new OrbitalMechanicsCalculator(
+      this.AU,
+      this.SCENE_SCALE,
+      this.EARTH_R
+    )
+
+    // Heliocentric view manager
+    this.heliocentricView = new HeliocentricViewManager(
+      this.scene,
+      this.camera,
+      this.controls,
+      this.AU,
+      this.SCENE_SCALE,
+      this.SUN_R_VISUAL,
+      this.EARTH_R_VISUAL
+    )
+
+    // Geocentric view manager
+    this.geocentricView = new GeocentricViewManager(
+      this.scene,
+      this.EARTH_R,
+      (lat, lng, radius) => ThreeJSUtils.latLngToVector3(lat, lng, radius)
+    )
+
+    // Impact visualizer
+    this.impactViz = new ImpactVisualizer(
+      this.scene,
+      this.camera,
+      this.controls,
+      this.EARTH_R,
+      (lat, lng, radius) => ThreeJSUtils.latLngToVector3(lat, lng, radius),
+      (lat, lng, bearing, distance) => ThreeJSUtils.calculateGeodesicPoint(lat, lng, bearing, distance, this.EARTH_R),
+      (t) => ThreeJSUtils.easeInOutCubic(t)
+    )
+
+    // Timeline controller
+    this.timelineCtrl = new TimelineController(
+      this.cesiumContainerTarget,
+      this.hasTimelineTarget
+    )
+
+    console.log("✅ All modules initialized")
+  }
+
+  // ============================================================================
+  // HELIOCENTRIC VIEW (Sun-centered orbital visualization)
+  // ============================================================================
+
+  /**
+   * Setup heliocentric (Sun-centered) view for orbital visualization
+   */
+  setupHeliocentricView() {
+    console.log("🌟 Setting up heliocentric view...")
+
+    try {
+      // Clear any existing geocentric objects
+      this.clearGeocentricObjects()
+
+      // Add starfield for visual appeal
+      this.createStarfield()
+
+      // Create the Sun
+      this.createSun()
+
+      // Create Earth's orbit path
+      this.createEarthOrbit()
+
+      // Create Earth at its orbital position
+      this.createOrbitalEarth()
+
+      // Position Earth at current time for initial view
+      this.positionEarthAtTime(new Date())
+
+      // Setup camera for orbital view
+      this.setupOrbitalCamera()
+
+      // Add initial ambient lighting
+      const ambientLight = new THREE.AmbientLight(0x222244, 0.3)
+      this.scene.add(ambientLight)
+
+      // Start with slow Earth orbit animation
+      this.defaultOrbitalAnimation = true
+
+      // Add welcome info panel
+      this.showWelcomePanel()
+
+      console.log("✅ Heliocentric view initialized")
+
+      // Debug: List all objects in the scene
+      this.debugScene()
+    } catch (error) {
+      console.error("❌ Error setting up heliocentric view:", error)
+      console.error("Stack:", error.stack)
+      throw error
+    }
+  }
+
+  /**
+   * Debug method to list all objects in the scene
+   */
+  debugScene() {
+    try {
+      console.log("🔍 DEBUG: Scene contents:")
+      if (!this.scene) {
+        console.log("  ❌ Scene is undefined!")
+        return
+      }
+
+      console.log(`  - Total children: ${this.scene.children.length}`)
+
+      this.scene.children.forEach((child, index) => {
+        console.log(`  ${index}: ${child.type} - ${child.name || 'unnamed'}`)
+        if (child.position) {
+          console.log(`      Position: (${child.position.x.toFixed(2)}, ${child.position.y.toFixed(2)}, ${child.position.z.toFixed(2)})`)
+        }
+        if (child.geometry && child.geometry.parameters) {
+          if (child.geometry.type === 'SphereGeometry') {
+            const params = child.geometry.parameters
+            console.log(`      Radius: ${params.radius}`)
+          }
+        }
+      })
+
+      if (this.camera && this.camera.position) {
+        console.log(`  - Camera position: (${this.camera.position.x.toFixed(2)}, ${this.camera.position.y.toFixed(2)}, ${this.camera.position.z.toFixed(2)})`)
+        console.log(`  - Camera looking at: (0, 0, 0)`)
+      }
+
+      if (this.renderer && this.renderer.domElement) {
+        console.log(`  - Renderer size: ${this.renderer.domElement.width}x${this.renderer.domElement.height}`)
+      }
+    } catch (error) {
+      console.error("❌ Error in debugScene:", error)
+    }
+  }
+
+  /**
+   * Show welcome panel with instructions
+   */
+  showWelcomePanel() {
+    try {
+      // Check if welcome panel already exists
+      if (document.getElementById('welcome-panel')) return
+
+      const panel = document.createElement('div')
+      panel.id = 'welcome-panel'
+      panel.style.cssText = `
+        position: absolute;
+        top: 20px;
+        right: 20px;
+        background: linear-gradient(135deg, rgba(23, 18, 38, 0.95), rgba(43, 38, 58, 0.95));
+        color: #93B4D8;
+        padding: 1.5rem;
+        border-radius: 12px;
+        border: 1px solid rgba(147, 180, 216, 0.3);
+        max-width: 350px;
+        box-shadow: 0 10px 30px rgba(0,0,0,0.5);
+        backdrop-filter: blur(10px);
+        z-index: 1000;
+      `
+
+    panel.innerHTML = `
+      <div style="display: flex; justify-content: space-between; align-items: start; margin-bottom: 1rem;">
+        <h3 style="margin: 0; color: #B39DDB;">🌟 Solar System View</h3>
+        <button id="close-welcome" style="
+          background: none;
+          border: none;
+          color: #93B4D8;
+          cursor: pointer;
+          font-size: 1.2rem;
+          padding: 0;
+          margin: 0;
+        ">×</button>
+      </div>
+      <div style="font-size: 0.9rem; line-height: 1.5;">
+        <p style="margin: 0.5rem 0;">Welcome to the NEO Impact Simulator!</p>
+        <p style="margin: 0.5rem 0;">You're viewing our Solar System from above:</p>
+        <ul style="margin: 0.5rem 0; padding-left: 1.5rem;">
+          <li>☀️ <strong>Sun</strong> at the center</li>
+          <li>🌍 <strong>Earth</strong> orbiting at 1 AU</li>
+          <li>✨ <strong>Drag</strong> to rotate view</li>
+          <li>🔍 <strong>Scroll</strong> to zoom</li>
+        </ul>
+        <p style="margin: 0.5rem 0; font-weight: 600; color: #FF6B35;">
+          👈 Browse NEOs to simulate their orbits and potential impacts
+        </p>
+      </div>
+    `
+
+    document.body.appendChild(panel)
+
+    // Add close button handler
+    const closeBtn = document.getElementById('close-welcome')
+    if (closeBtn) {
+      closeBtn.addEventListener('click', () => {
+        panel.style.transition = 'opacity 0.3s'
+        panel.style.opacity = '0'
+        setTimeout(() => panel.remove(), 300)
+      })
+    }
+
+      // Auto-hide after 10 seconds
+      setTimeout(() => {
+        if (document.getElementById('welcome-panel')) {
+          panel.style.transition = 'opacity 0.3s'
+          panel.style.opacity = '0'
+          setTimeout(() => panel.remove(), 300)
+        }
+      }, 10000)
+    } catch (error) {
+      console.error("❌ Error showing welcome panel:", error)
+    }
+  }
+
+  /**
+   * Create starfield background
+   */
+  createStarfield() {
+    console.log("✨ Creating starfield...")
+
+    const starGeometry = new THREE.BufferGeometry()
+    const starCount = 5000
+    const positions = new Float32Array(starCount * 3)
+    const colors = new Float32Array(starCount * 3)
+
+    for (let i = 0; i < starCount; i++) {
+      const i3 = i * 3
+
+      // Random position in sphere
+      const radius = 500 + Math.random() * 1000
+      const theta = Math.random() * Math.PI * 2
+      const phi = Math.acos(2 * Math.random() - 1)
+
+      positions[i3] = radius * Math.sin(phi) * Math.cos(theta)
+      positions[i3 + 1] = radius * Math.sin(phi) * Math.sin(theta)
+      positions[i3 + 2] = radius * Math.cos(phi)
+
+      // Random star color (white to blue-white)
+      const brightness = 0.5 + Math.random() * 0.5
+      colors[i3] = brightness * (0.8 + Math.random() * 0.2)
+      colors[i3 + 1] = brightness * (0.8 + Math.random() * 0.2)
+      colors[i3 + 2] = brightness
+    }
+
+    starGeometry.setAttribute('position', new THREE.BufferAttribute(positions, 3))
+    starGeometry.setAttribute('color', new THREE.BufferAttribute(colors, 3))
+
+    const starMaterial = new THREE.PointsMaterial({
+      size: 1,
+      vertexColors: true,
+      transparent: true,
+      opacity: 0.8,
+      sizeAttenuation: false
+    })
+
+    this.starfield = new THREE.Points(starGeometry, starMaterial)
+    this.scene.add(this.starfield)
+
+    console.log("  ✅ Starfield created with", starCount, "stars")
+  }
+
+  /**
+   * Create the Sun at origin
+   */
+  createSun() {
+    console.log("☀️ Creating Sun...")
+
+    // Sun geometry (scaled for visibility)
+    const sunRadius = this.SUN_R_VISUAL / this.SCENE_SCALE
+    const sunGeometry = new THREE.SphereGeometry(sunRadius, 32, 32)
+
+    console.log(`  - Sun radius: ${sunRadius} scene units`)
+    console.log(`  - Sun visual size: ${this.SUN_R_VISUAL} km`)
+
+    // Sun material - bright basic material (MeshBasicMaterial doesn't need emissive)
+    const sunMaterial = new THREE.MeshBasicMaterial({
+      color: 0xFFD700,
+      transparent: false
+    })
+
+    // Create sun mesh
+    this.sun = new THREE.Mesh(sunGeometry, sunMaterial)
+    this.sun.position.set(0, 0, 0)
+    this.scene.add(this.sun)
+
+    console.log("  - Sun added to scene at origin")
+
+    // Add glow effect
+    const glowGeometry = new THREE.SphereGeometry(sunRadius * 1.5, 32, 32)
+    const glowMaterial = new THREE.MeshBasicMaterial({
+      color: 0xFFD700,
+      transparent: true,
+      opacity: 0.3
+    })
+
+    this.sunGlow = new THREE.Mesh(glowGeometry, glowMaterial)
+    this.sunGlow.name = 'SunGlow'
+    this.scene.add(this.sunGlow)
+
+    // Add strong point light at sun position for lighting the scene
+    this.sunLight = new THREE.PointLight(0xFFFFFF, 2, this.AU / this.SCENE_SCALE * 3)
+    this.sunLight.position.set(0, 0, 0)
+    this.sunLight.name = 'SunLight'
+    this.scene.add(this.sunLight)
+
+    console.log("  ✅ Sun created at origin with light")
+  }
+
+  /**
+   * Create Earth's circular orbit path
+   */
+  createEarthOrbit() {
+    console.log("🌍 Creating Earth's orbit...")
+
+    // Create orbit path (circle at 1 AU)
+    const orbitRadius = this.AU / this.SCENE_SCALE
+    const segments = 256
+
+    console.log(`  - Orbit radius: ${orbitRadius} scene units`)
+    console.log(`  - 1 AU = ${this.AU} km`)
+    console.log(`  - Scene scale: 1 unit = ${this.SCENE_SCALE} km`)
+
+    const orbitGeometry = new THREE.BufferGeometry()
+    const orbitPoints = []
+
+    for (let i = 0; i <= segments; i++) {
+      const angle = (i / segments) * Math.PI * 2
+      const x = Math.cos(angle) * orbitRadius
+      const z = Math.sin(angle) * orbitRadius
+      orbitPoints.push(new THREE.Vector3(x, 0, z))
+    }
+
+    orbitGeometry.setFromPoints(orbitPoints)
+
+    // Orbit line material - make it brighter
+    const orbitMaterial = new THREE.LineBasicMaterial({
+      color: 0x4A90E2,
+      opacity: 0.8,
+      transparent: true,
+      linewidth: 2  // Note: linewidth may not work on all platforms
+    })
+
+    this.earthOrbitLine = new THREE.Line(orbitGeometry, orbitMaterial)
+    this.scene.add(this.earthOrbitLine)
+
+    console.log(`  ✅ Earth orbit created and added to scene`)
+  }
+
+  /**
+   * Create Earth at its orbital position
+   */
+  createOrbitalEarth() {
+    console.log("🌍 Creating orbital Earth...")
+
+    const earthRadius = this.EARTH_R_VISUAL / this.SCENE_SCALE
+    const orbitRadius = this.AU / this.SCENE_SCALE
+
+    // Create Earth sphere
+    const earthGeometry = new THREE.SphereGeometry(earthRadius, 32, 32)
+
+    // Blue Earth with good visibility
+    const earthMaterial = new THREE.MeshPhongMaterial({
+      color: 0x2E7FFF,
+      emissive: 0x112244,
+      emissiveIntensity: 0.2,
+      shininess: 30
+    })
+
+    this.orbitalEarth = new THREE.Mesh(earthGeometry, earthMaterial)
+    this.orbitalEarth.name = 'Earth'
+
+    // Position Earth on its orbit (start at 90 degrees for better visibility)
+    this.earthOrbitalAngle = Math.PI / 2
+    this.orbitalEarth.position.set(
+      Math.cos(this.earthOrbitalAngle) * orbitRadius,
+      0,
+      Math.sin(this.earthOrbitalAngle) * orbitRadius
+    )
+
+    this.scene.add(this.orbitalEarth)
+
+    console.log(`  ✅ Earth positioned on orbit at (${this.orbitalEarth.position.x.toFixed(2)}, ${this.orbitalEarth.position.y.toFixed(2)}, ${this.orbitalEarth.position.z.toFixed(2)})`)
+  }
+
+  /**
+   * Setup camera for orbital view
+   */
+  setupOrbitalCamera() {
+    console.log("📷 Setting up orbital camera...")
+
+    const orbitRadius = this.AU / this.SCENE_SCALE
+
+    // Position camera at a nice angle to see the solar system
+    // Slightly above the orbital plane for a good 3D perspective
+    const cameraX = orbitRadius * 1.2
+    const cameraY = orbitRadius * 0.6
+    const cameraZ = orbitRadius * 1.2
+
+    console.log(`  - Positioning camera at (${cameraX}, ${cameraY}, ${cameraZ})`)
+    console.log(`  - Orbit radius: ${orbitRadius} scene units`)
+
+    this.camera.position.set(cameraX, cameraY, cameraZ)
+    this.camera.lookAt(0, 0, 0)
+
+    console.log(`  - Actual camera position:`, this.camera.position)
+
+    // Update controls
+    if (this.controls) {
+      this.controls.target.set(0, 0, 0)
+      this.controls.minDistance = orbitRadius * 0.2
+      this.controls.maxDistance = orbitRadius * 5
+      this.controls.enablePan = false  // Keep focus on Sun
+      this.controls.autoRotate = true
+      this.controls.autoRotateSpeed = 0.5  // Slow rotation for visual appeal
+      this.controls.update()
+    }
+
+    console.log("  ✅ Camera positioned for orbital view")
+  }
+
+  /**
+   * Create and render NEO's elliptical orbit from Keplerian elements
+   */
+  createNeoOrbit(orbitalElements, encounterTime = null) {
+    console.log("☄️ Creating NEO orbit from Keplerian elements...")
+
+    if (!orbitalElements) {
+      console.warn("  ⚠️ No orbital elements provided")
+      return
+    }
+
+    // Store orbital elements for later use
+    this.neoOrbitalElements = orbitalElements
+    this.encounterTime = encounterTime
+
+    // Clear previous NEO orbit if exists
+    if (this.neoOrbitLine) {
+      this.scene.remove(this.neoOrbitLine)
+    }
+    if (this.neoMesh) {
+      this.scene.remove(this.neoMesh)
+    }
+
+    // Extract orbital elements
+    const a = orbitalElements.semi_major_axis_au * this.AU / this.SCENE_SCALE  // Semi-major axis
+    const e = orbitalElements.eccentricity  // Eccentricity
+    const i = THREE.MathUtils.degToRad(orbitalElements.inclination_deg || 0)  // Inclination
+    const omega = THREE.MathUtils.degToRad(orbitalElements.argument_perihelion_deg || 0)  // Arg of perihelion
+    const Omega = THREE.MathUtils.degToRad(orbitalElements.longitude_ascending_node_deg || 0)  // Long of asc node
+
+    console.log("  📊 Orbital parameters:")
+    console.log(`    - Semi-major axis: ${a.toFixed(2)} scene units`)
+    console.log(`    - Eccentricity: ${e}`)
+    console.log(`    - Inclination: ${orbitalElements.inclination_deg}°`)
+
+    // Calculate ellipse parameters
+    const b = a * Math.sqrt(1 - e * e)  // Semi-minor axis
+    const c = a * e  // Distance from center to focus (Sun is at one focus)
+
+    // Generate ellipse points in orbital plane
+    const segments = 256
+    const orbitPoints = []
+
+    for (let j = 0; j <= segments; j++) {
+      const theta = (j / segments) * Math.PI * 2  // True anomaly
+
+      // Position in orbital plane (centered at focus)
+      const r = a * (1 - e * e) / (1 + e * Math.cos(theta))  // Orbital radius
+      const x_orb = r * Math.cos(theta)
+      const z_orb = r * Math.sin(theta)
+
+      // Apply orbital orientation (3D rotation)
+      // First rotate by argument of perihelion (ω) in orbital plane
+      const x1 = x_orb * Math.cos(omega) - z_orb * Math.sin(omega)
+      const z1 = x_orb * Math.sin(omega) + z_orb * Math.cos(omega)
+
+      // Then apply inclination (i) and longitude of ascending node (Ω)
+      const x2 = x1 * Math.cos(Omega) - z1 * Math.cos(i) * Math.sin(Omega)
+      const y2 = z1 * Math.sin(i)
+      const z2 = x1 * Math.sin(Omega) + z1 * Math.cos(i) * Math.cos(Omega)
+
+      orbitPoints.push(new THREE.Vector3(x2, y2, z2))
+    }
+
+    // Create orbit line
+    const orbitGeometry = new THREE.BufferGeometry().setFromPoints(orbitPoints)
+    const orbitMaterial = new THREE.LineBasicMaterial({
+      color: 0xFF6B35,  // Orange for NEO orbit
+      opacity: 0.7,
+      transparent: true
+    })
+
+    this.neoOrbitLine = new THREE.Line(orbitGeometry, orbitMaterial)
+    this.scene.add(this.neoOrbitLine)
+
+    // Create NEO mesh (small sphere)
+    const neoRadius = this.EARTH_R_VISUAL / this.SCENE_SCALE * 0.2  // 20% of Earth size
+    const neoGeometry = new THREE.SphereGeometry(neoRadius, 16, 16)
+    const neoMaterial = new THREE.MeshPhongMaterial({
+      color: 0xFF4444,
+      emissive: 0xFF0000,
+      emissiveIntensity: 0.5,
+      shininess: 30
+    })
+
+    this.neoMesh = new THREE.Mesh(neoGeometry, neoMaterial)
+
+    // Position NEO at encounter time if provided, otherwise at perihelion
+    if (encounterTime) {
+      this.positionNeoAtTime(encounterTime)
+    } else {
+      const perihelionDistance = a * (1 - e)
+      this.neoMesh.position.set(perihelionDistance, 0, 0)
+    }
+
+    this.scene.add(this.neoMesh)
+
+    console.log("  ✅ NEO orbit created")
+  }
+
+  /**
+   * Calculate orbital position at a specific time using Kepler's laws
+   */
+  calculateOrbitalPosition(orbitalElements, timeJD) {
+    // Extract elements
+    const a = orbitalElements.semi_major_axis_au  // AU
+    const e = orbitalElements.eccentricity
+    const i = THREE.MathUtils.degToRad(orbitalElements.inclination_deg || 0)
+    const omega = THREE.MathUtils.degToRad(orbitalElements.argument_perihelion_deg || 0)
+    const Omega = THREE.MathUtils.degToRad(orbitalElements.longitude_ascending_node_deg || 0)
+    const epochJD = orbitalElements.epoch_jd
+    const meanMotion = orbitalElements.mean_motion_deg_per_day || this.calculateMeanMotion(a)
+    const M0 = THREE.MathUtils.degToRad(orbitalElements.mean_anomaly_deg || 0)
+
+    // Calculate mean anomaly at time t
+    const dt = timeJD - epochJD  // Days since epoch
+    const M = M0 + THREE.MathUtils.degToRad(meanMotion * dt)  // Mean anomaly at time t
+
+    // Solve Kepler's equation M = E - e*sin(E) for eccentric anomaly E
+    const E = this.solveKeplersEquation(M, e)
+
+    // Calculate true anomaly from eccentric anomaly
+    const trueAnomaly = 2 * Math.atan2(
+      Math.sqrt(1 + e) * Math.sin(E / 2),
+      Math.sqrt(1 - e) * Math.cos(E / 2)
+    )
+
+    // Calculate distance from focus (Sun)
+    const r = a * (1 - e * Math.cos(E))  // AU
+
+    // Position in orbital plane
+    const x_orb = r * Math.cos(trueAnomaly)
+    const y_orb = r * Math.sin(trueAnomaly)
+
+    // Apply orbital orientation transformations
+    // First rotate by argument of perihelion
+    const x1 = x_orb * Math.cos(omega) - y_orb * Math.sin(omega)
+    const z1 = x_orb * Math.sin(omega) + y_orb * Math.cos(omega)
+
+    // Then apply inclination and longitude of ascending node
+    const x2 = x1 * Math.cos(Omega) - z1 * Math.cos(i) * Math.sin(Omega)
+    const y2 = z1 * Math.sin(i)
+    const z2 = x1 * Math.sin(Omega) + z1 * Math.cos(i) * Math.cos(Omega)
+
+    // Convert to scene units
+    const sceneScale = this.AU / this.SCENE_SCALE
+    return new THREE.Vector3(
+      x2 * sceneScale,
+      y2 * sceneScale,
+      z2 * sceneScale
+    )
+  }
+
+  /**
+   * Solve Kepler's equation using Newton-Raphson method
+   */
+  solveKeplersEquation(M, e, tolerance = 1e-8) {
+    let E = M  // Initial guess
+    let maxIterations = 30
+
+    for (let i = 0; i < maxIterations; i++) {
+      const f = E - e * Math.sin(E) - M
+      const fPrime = 1 - e * Math.cos(E)
+      const delta = f / fPrime
+      E -= delta
+
+      if (Math.abs(delta) < tolerance) break
+    }
+
+    return E
+  }
+
+  /**
+   * Calculate mean motion from semi-major axis (degrees per day)
+   */
+  calculateMeanMotion(semiMajorAxisAU) {
+    // Kepler's third law: n = 360° / orbital_period
+    // Period (years) = sqrt(a^3) for a in AU
+    const periodYears = Math.sqrt(Math.pow(semiMajorAxisAU, 3))
+    const periodDays = periodYears * 365.25
+    return 360.0 / periodDays  // degrees per day
+  }
+
+  /**
+   * Position NEO at specific time
+   */
+  positionNeoAtTime(time) {
+    if (!this.neoOrbitalElements || !this.neoMesh) return
+
+    // Convert time to Julian Date
+    const timeJD = this.timeToJulianDate(time)
+
+    // Calculate position
+    const position = this.calculateOrbitalPosition(this.neoOrbitalElements, timeJD)
+    this.neoMesh.position.copy(position)
+
+    console.log(`  📍 NEO positioned at JD ${timeJD.toFixed(2)}`)
+  }
+
+  /**
+   * Position Earth and NEO using scientifically accurate backend calculations
+   * This uses the actual heliocentric positions calculated by OrbitalMechanicsService
+   */
+  positionObjectsFromBackendData(visualization) {
+    console.log("🔬 Positioning objects from backend orbital calculations...")
+
+    try {
+      // Backend provides positions in km, we need to convert to scene units
+      const earthPos = visualization.earth_position  // [x, y, z] in km
+      const neoPos = visualization.neo_position      // [x, y, z] in km
+
+      console.log("  - Backend Earth position (km):", earthPos)
+      console.log("  - Backend NEO position (km):", neoPos)
+
+      // Convert from km to scene units
+      if (this.orbitalEarth && earthPos && earthPos.length === 3) {
+        this.orbitalEarth.position.set(
+          earthPos[0] / this.SCENE_SCALE,
+          earthPos[1] / this.SCENE_SCALE,
+          earthPos[2] / this.SCENE_SCALE
+        )
+        console.log(`  ✅ Earth positioned at (${this.orbitalEarth.position.x.toFixed(2)}, ${this.orbitalEarth.position.y.toFixed(2)}, ${this.orbitalEarth.position.z.toFixed(2)}) scene units`)
+      }
+
+      if (this.neoMesh && neoPos && neoPos.length === 3) {
+        this.neoMesh.position.set(
+          neoPos[0] / this.SCENE_SCALE,
+          neoPos[1] / this.SCENE_SCALE,
+          neoPos[2] / this.SCENE_SCALE
+        )
+        console.log(`  ✅ NEO positioned at (${this.neoMesh.position.x.toFixed(2)}, ${this.neoMesh.position.y.toFixed(2)}, ${this.neoMesh.position.z.toFixed(2)}) scene units`)
+      }
+
+      // Calculate and display distance between them
+      if (this.orbitalEarth && this.neoMesh) {
+        const distance = this.orbitalEarth.position.distanceTo(this.neoMesh.position)
+        const distanceKm = distance * this.SCENE_SCALE
+        console.log(`  📏 Distance between Earth and NEO: ${distanceKm.toLocaleString()} km`)
+      }
+
+      console.log("  🎯 Objects positioned using scientifically accurate backend calculations")
+    } catch (error) {
+      console.error("❌ Error positioning objects from backend data:", error)
+    }
+  }
+
+  /**
+   * Position Earth at specific time on its orbit
+   * NOTE: This is a SIMPLIFIED approximation. For scientific accuracy,
+   * use positionObjectsFromBackendData() which uses proper ephemeris calculations.
+   */
+  positionEarthAtTime(time) {
+    if (!this.orbitalEarth) {
+      console.warn("  ⚠️ orbitalEarth not found, skipping positioning")
+      return
+    }
+
+    try {
+      // Simplified Earth position (circular orbit)
+      const timeJD = this.timeToJulianDate(time)
+      const j2000 = 2451545.0
+      const daysSinceJ2000 = timeJD - j2000
+
+      // Earth's mean longitude (degrees)
+      const meanLongitude = (100.46435 + 0.985609101 * daysSinceJ2000) % 360
+      const angleRad = THREE.MathUtils.degToRad(meanLongitude)
+
+      // Position on circular orbit
+      const orbitRadius = this.AU / this.SCENE_SCALE
+      this.orbitalEarth.position.set(
+        Math.cos(angleRad) * orbitRadius,
+        0,
+        -Math.sin(angleRad) * orbitRadius  // Negative for correct direction
+      )
+
+      this.earthOrbitalAngle = angleRad
+      console.log(`  🌍 Earth positioned at longitude ${meanLongitude.toFixed(1)}°`)
+    } catch (error) {
+      console.error("❌ Error positioning Earth:", error)
+    }
+  }
+
+  /**
+   * Convert JavaScript Date/Time to Julian Date
+   */
+  timeToJulianDate(time) {
+    // Handle various input types
+    let date
+    if (time instanceof Date) {
+      date = time
+    } else if (typeof time === 'string') {
+      date = new Date(time)
+    } else if (typeof time === 'object' && time.toDate) {
+      date = time.toDate()  // Rails Time object
+    } else {
+      date = new Date(time)
+    }
+
+    const unixTime = date.getTime() / 1000  // Convert to seconds
+    return 2440587.5 + (unixTime / 86400.0)
+  }
+
+  /**
+   * Calculate and show encounter point between Earth and NEO
+   */
+  showEncounterPoint(simulationData) {
+    console.log("⚡ Showing encounter point...")
+
+    if (!simulationData) return
+
+    const isImpact = simulationData.impact
+    const isNearMiss = simulationData.near_miss
+
+    // Create encounter marker
+    const markerGeometry = new THREE.SphereGeometry(
+      this.EARTH_R_VISUAL / this.SCENE_SCALE * 0.3,
+      16,
+      16
+    )
+
+    const markerMaterial = new THREE.MeshBasicMaterial({
+      color: isImpact ? 0xFF0000 : 0x00FF00,  // Red for impact, green for miss
+      transparent: true,
+      opacity: 0.8
+    })
+
+    if (this.encounterMarker) {
+      this.scene.remove(this.encounterMarker)
+    }
+
+    this.encounterMarker = new THREE.Mesh(markerGeometry, markerMaterial)
+
+    // For now, place at Earth's current position (will be refined)
+    if (this.orbitalEarth) {
+      this.encounterMarker.position.copy(this.orbitalEarth.position)
+    }
+
+    this.scene.add(this.encounterMarker)
+
+    // Add pulsing animation to marker
+    this.encounterMarker.userData.pulse = true
+
+    console.log(`  ✅ Encounter marked: ${isImpact ? '💥 IMPACT' : '✅ NEAR MISS'}`)
+  }
+
+  /**
+   * Add velocity vectors to show orbital motion
+   */
+  addVelocityVectors(simulationData) {
+    console.log("➡️ Adding velocity vectors...")
+
+    // Clear existing vectors
+    if (this.velocityVectors) {
+      this.velocityVectors.forEach(arrow => this.scene.remove(arrow))
+      this.velocityVectors = []
+    } else {
+      this.velocityVectors = []
+    }
+
+    // Earth velocity vector
+    if (this.orbitalEarth) {
+      const earthVelocity = this.calculateEarthVelocity()
+      const earthArrow = this.createVelocityArrow(
+        this.orbitalEarth.position,
+        earthVelocity,
+        0x4A90E2,  // Blue for Earth
+        "Earth: 29.8 km/s"
+      )
+      if (earthArrow) {
+        this.scene.add(earthArrow)
+        this.velocityVectors.push(earthArrow)
+      }
+    }
+
+    // NEO velocity vector
+    if (this.neoMesh && this.neoOrbitalElements) {
+      const neoVelocity = this.calculateNeoVelocity()
+      const neoArrow = this.createVelocityArrow(
+        this.neoMesh.position,
+        neoVelocity,
+        0xFF6B35,  // Orange for NEO
+        `NEO: ${(simulationData?.results?.relative_velocity_kms || 20).toFixed(1)} km/s`
+      )
+      if (neoArrow) {
+        this.scene.add(neoArrow)
+        this.velocityVectors.push(neoArrow)
+      }
+    }
+
+    console.log("  ✅ Velocity vectors added")
+  }
+
+  /**
+   * Create arrow helper for velocity visualization
+   */
+  createVelocityArrow(origin, direction, color, label) {
+    if (!origin || !direction) return null
+
+    // Scale velocity for visualization
+    const arrowLength = this.AU / this.SCENE_SCALE * 0.2  // 20% of AU
+    const arrowHelper = new THREE.ArrowHelper(
+      direction.normalize(),
+      origin,
+      arrowLength,
+      color,
+      arrowLength * 0.3,  // Head length
+      arrowLength * 0.15   // Head radius
+    )
+
+    arrowHelper.userData.label = label
+    return arrowHelper
+  }
+
+  /**
+   * Calculate Earth's velocity vector (tangent to orbit)
+   */
+  calculateEarthVelocity() {
+    // For circular orbit, velocity is perpendicular to position
+    if (!this.orbitalEarth) return new THREE.Vector3(1, 0, 0)
+
+    const pos = this.orbitalEarth.position.clone().normalize()
+    // Velocity is perpendicular to radial vector (in orbital plane)
+    return new THREE.Vector3(-pos.z, 0, pos.x).normalize()
+  }
+
+  /**
+   * Calculate NEO's velocity vector at current position
+   */
+  calculateNeoVelocity() {
+    // Simplified: tangent to ellipse at current position
+    if (!this.neoMesh) return new THREE.Vector3(1, 0, 0)
+
+    const pos = this.neoMesh.position.clone()
+    // For now, approximate as perpendicular to position
+    // In production, would calculate from orbital mechanics
+    return new THREE.Vector3(-pos.z, 0, pos.x).normalize()
+  }
+
+  /**
+   * Setup orbital timeline controls for time progression
+   */
+  setupOrbitalTimeline(encounterTime) {
+    console.log("⏱️ Setting up orbital timeline...")
+
+    // Store timeline data
+    this.orbitalTimeline = {
+      encounterTime: encounterTime || new Date(),
+      currentTime: encounterTime || new Date(),
+      startTime: null,  // Will be set to encounterTime - 30 days
+      endTime: null,     // Will be set to encounterTime + 30 days
+      playing: false,
+      speed: 1  // Days per second of animation
+    }
+
+    // Set timeline bounds (±30 days from encounter)
+    const msPerDay = 24 * 60 * 60 * 1000
+    this.orbitalTimeline.startTime = new Date(this.orbitalTimeline.encounterTime.getTime() - 30 * msPerDay)
+    this.orbitalTimeline.endTime = new Date(this.orbitalTimeline.encounterTime.getTime() + 30 * msPerDay)
+
+    // Create timeline UI controls
+    this.createTimelineControls()
+
+    console.log("  ✅ Timeline ready")
+    console.log(`    - Start: ${this.orbitalTimeline.startTime.toDateString()}`)
+    console.log(`    - Encounter: ${this.orbitalTimeline.encounterTime.toDateString()}`)
+    console.log(`    - End: ${this.orbitalTimeline.endTime.toDateString()}`)
+  }
+
+  /**
+   * Create timeline UI controls for orbital view
+   */
+  createTimelineControls() {
+    // Check if timeline panel exists
+    let timelinePanel = document.getElementById('orbital-timeline-panel')
+
+    if (!timelinePanel && this.hasTimelineTarget) {
+      // Create timeline panel
+      timelinePanel = document.createElement('div')
+      timelinePanel.id = 'orbital-timeline-panel'
+      timelinePanel.className = 'orbital-timeline'
+      timelinePanel.style.cssText = `
+        position: absolute;
+        bottom: 20px;
+        left: 50%;
+        transform: translateX(-50%);
+        background: rgba(23, 18, 38, 0.95);
+        padding: 1rem;
+        border-radius: 8px;
+        border: 1px solid rgba(147, 180, 216, 0.3);
+        min-width: 400px;
+        z-index: 100;
+      `
+
+      timelinePanel.innerHTML = `
+        <div class="timeline-header" style="text-align: center; margin-bottom: 0.5rem; color: #93B4D8;">
+          <span id="timeline-date">Encounter Date</span>
+        </div>
+        <div class="timeline-controls" style="display: flex; gap: 1rem; align-items: center;">
+          <button id="timeline-play" class="btn btn-sm">▶</button>
+          <input type="range" id="timeline-slider"
+                 min="0" max="60" value="30"
+                 style="flex: 1;">
+          <span id="timeline-speed" style="color: #B39DDB;">1x</span>
+        </div>
+      `
+
+      this.timelineTarget.appendChild(timelinePanel)
+
+      // Add event listeners
+      const playBtn = document.getElementById('timeline-play')
+      const slider = document.getElementById('timeline-slider')
+      const speedBtn = document.getElementById('timeline-speed')
+
+      if (playBtn) {
+        playBtn.addEventListener('click', () => this.toggleOrbitalPlayback())
+      }
+
+      if (slider) {
+        slider.addEventListener('input', (e) => this.updateOrbitalTime(e.target.value))
+      }
+
+      if (speedBtn) {
+        speedBtn.addEventListener('click', () => this.cyclePlaybackSpeed())
+      }
+    }
+
+    // Update display
+    this.updateTimelineDisplay()
+  }
+
+  /**
+   * Toggle orbital animation playback
+   */
+  toggleOrbitalPlayback() {
+    this.orbitalTimeline.playing = !this.orbitalTimeline.playing
+    const playBtn = document.getElementById('timeline-play')
+    if (playBtn) {
+      playBtn.textContent = this.orbitalTimeline.playing ? '⏸' : '▶'
+    }
+    console.log(this.orbitalTimeline.playing ? "▶️ Playing orbital animation" : "⏸ Paused")
+  }
+
+  /**
+   * Update orbital positions based on timeline
+   */
+  updateOrbitalTime(sliderValue) {
+    const progress = sliderValue / 60  // 0 to 1
+    const msPerDay = 24 * 60 * 60 * 1000
+    const totalMs = this.orbitalTimeline.endTime - this.orbitalTimeline.startTime
+    const currentMs = this.orbitalTimeline.startTime.getTime() + (progress * totalMs)
+
+    this.orbitalTimeline.currentTime = new Date(currentMs)
+
+    // Update positions
+    this.positionEarthAtTime(this.orbitalTimeline.currentTime)
+    this.positionNeoAtTime(this.orbitalTimeline.currentTime)
+
+    // Update display
+    this.updateTimelineDisplay()
+  }
+
+  /**
+   * Cycle through playback speeds
+   */
+  cyclePlaybackSpeed() {
+    const speeds = [0.5, 1, 2, 5, 10]
+    const currentIndex = speeds.indexOf(this.orbitalTimeline.speed)
+    const nextIndex = (currentIndex + 1) % speeds.length
+    this.orbitalTimeline.speed = speeds[nextIndex]
+
+    const speedBtn = document.getElementById('timeline-speed')
+    if (speedBtn) {
+      speedBtn.textContent = `${this.orbitalTimeline.speed}x`
+    }
+  }
+
+  /**
+   * Update timeline display
+   */
+  updateTimelineDisplay() {
+    const dateDisplay = document.getElementById('timeline-date')
+    if (dateDisplay) {
+      const daysBefore = Math.round((this.orbitalTimeline.encounterTime - this.orbitalTimeline.currentTime) / (24 * 60 * 60 * 1000))
+      const dateStr = this.orbitalTimeline.currentTime.toLocaleDateString()
+
+      if (Math.abs(daysBefore) < 1) {
+        dateDisplay.innerHTML = `<strong style="color: #FF6B35;">ENCOUNTER DAY</strong> - ${dateStr}`
+      } else if (daysBefore > 0) {
+        dateDisplay.textContent = `T-${daysBefore} days - ${dateStr}`
+      } else {
+        dateDisplay.textContent = `T+${Math.abs(daysBefore)} days - ${dateStr}`
+      }
+    }
+  }
+
+  /**
+   * Clear geocentric objects when switching to heliocentric view
+   */
+  clearGeocentricObjects() {
+    if (!this.scene) return  // Safety check
+
+    // Remove Earth mesh if exists
+    if (this.earthMesh) {
+      this.scene.remove(this.earthMesh)
+      this.earthMesh = null
+    }
+
+    // Remove atmosphere
+    if (this.atmosphere) {
+      this.scene.remove(this.atmosphere)
+      this.atmosphere = null
+    }
+
+    // Remove country borders
+    if (this.countryBorders) {
+      this.scene.remove(this.countryBorders)
+      this.countryBorders = null
+    }
+
+    // Clear damage rings if method exists
+    if (typeof this.clearDamageRings === 'function') {
+      this.clearDamageRings()
+    }
+  }
+
+  // ============================================================================
+  // GEOCENTRIC VIEW (Earth-centered impact visualization)
+  // ============================================================================
+
+  /**
+   * Create Earth sphere with ocean and atmosphere layers
+   * Earth is composed of:
+   * 1. Ocean sphere (base layer) - Phong material with specular highlights
+   * 2. Land masses (added in loadGeography)
+   * 3. Atmosphere glow (slightly larger sphere, transparent)
+   */
+  setupEarth() {
+    this.earthGroup = new THREE.Group()
+
+    // Ocean sphere (base layer)
+    const oceanGeometry = new THREE.SphereGeometry(this.EARTH_R, 64, 64)
+    const oceanMaterial = new THREE.MeshPhongMaterial({
+      color: 0x003366,
+      specular: 0x004488,
+      shininess: 40,
+      emissive: 0x001122,
+      emissiveIntensity: 0.3
+    })
+    this.oceanMesh = new THREE.Mesh(oceanGeometry, oceanMaterial)
+    this.earthGroup.add(this.oceanMesh)
+
+    // Atmosphere glow (2% larger than Earth)
+    const atmosphereGeometry = new THREE.SphereGeometry(this.EARTH_R * 1.02, 32, 32)
+    const atmosphereMaterial = new THREE.MeshBasicMaterial({
+      color: 0x88aaff,
+      transparent: true,
+      opacity: 0.15,
+      side: THREE.BackSide  // Only visible from inside
+    })
+    this.atmosphere = new THREE.Mesh(atmosphereGeometry, atmosphereMaterial)
+    this.earthGroup.add(this.atmosphere)
+
+    this.scene.add(this.earthGroup)
+
+    console.log("🌍 Earth sphere created (radius:", this.EARTH_R, "meters)")
+  }
+
+  // ============================================================================
+  // GEOGRAPHY: LOADING AND RENDERING LAND MASSES
+  // ============================================================================
+
+  /**
+   * Load TopoJSON world geography data and render countries
+   * Creates clickable land masses and coastlines
+   * Data source: world-110m.json (from Natural Earth)
+   */
+  async loadGeography() {
+    if (!this.worldUrlValue) return
+
+    console.log("🗺️  Loading geography from:", this.worldUrlValue)
+
+    try {
+      const response = await fetch(this.worldUrlValue)
+      const topology = await response.json()
+      const geojson = feature(topology, topology.objects.countries)
+
+      console.log("✅ Geography loaded:", geojson.features.length, "countries")
+
+      // Store country data for hover detection
+      this.countryData = geojson.features
+
+      // Create land masses
+      const landGroup = new THREE.Group()
+
+      geojson.features.forEach(feature => {
+        if (feature.geometry.type === "Polygon" || feature.geometry.type === "MultiPolygon") {
+          const landMesh = this.createLandMesh(feature)
+          if (landMesh) {
+            landMesh.userData.country = feature.properties.name || "Unknown"
+            landGroup.add(landMesh)
+          }
+        }
+      })
+
+      this.earthGroup.add(landGroup)
+      this.landGroup = landGroup
+
+      // Create coastlines
+      this.createCoastlines(geojson)
+
+    } catch (e) {
+      console.warn("⚠️  Geography failed to load:", e)
+    }
+  }
+
+  /**
+   * Convert GeoJSON feature to Three.js mesh
+   * Projects lat/lng coordinates onto sphere surface
+   *
+   * NOTE: This is a simplified 2D projection. For more accurate rendering,
+   * consider using a proper sphere mapping algorithm.
+   */
+  createLandMesh(feature) {
+    const vertices = []
+    const processCoordinates = (coords) => {
+      coords.forEach(coord => {
+        const [lng, lat] = coord
+        const vec = this.latLngToVector3(lat, lng, this.EARTH_R + 500)
+        vertices.push(vec)
+      })
+    }
+
+    if (feature.geometry.type === "Polygon") {
+      processCoordinates(feature.geometry.coordinates[0])
+    } else if (feature.geometry.type === "MultiPolygon") {
+      feature.geometry.coordinates.forEach(polygon => {
+        processCoordinates(polygon[0])
+      })
+    }
+
+    if (vertices.length < 3) return null
+
+    // Create shape from vertices
+    const shape = new THREE.Shape()
+    vertices.forEach((v, i) => {
+      if (i === 0) shape.moveTo(v.x, v.y)
+      else shape.lineTo(v.x, v.y)
+    })
+
+    // Create mesh with land coloring
+    const geometry = new THREE.ShapeGeometry(shape)
+    const material = new THREE.MeshPhongMaterial({
+      color: 0x2a4a2a,
+      emissive: 0x1a2a1a,
+      emissiveIntensity: 0.2,
+      side: THREE.DoubleSide
+    })
+
+    return new THREE.Mesh(geometry, material)
+  }
+
+  /**
+   * Create coastline overlays as line segments
+   * Slightly elevated above land for visibility
+   */
+  createCoastlines(geojson) {
+    const coastlineVertices = []
+
+    geojson.features.forEach(feature => {
+      const processRing = (ring) => {
+        for (let i = 0; i < ring.length - 1; i++) {
+          const [lng1, lat1] = ring[i]
+          const [lng2, lat2] = ring[i + 1]
+          const v1 = this.latLngToVector3(lat1, lng1, this.EARTH_R + 1000)
+          const v2 = this.latLngToVector3(lat2, lng2, this.EARTH_R + 1000)
+          coastlineVertices.push(v1.x, v1.y, v1.z, v2.x, v2.y, v2.z)
+        }
+      }
+
+      if (feature.geometry.type === "Polygon") {
+        feature.geometry.coordinates.forEach(processRing)
+      } else if (feature.geometry.type === "MultiPolygon") {
+        feature.geometry.coordinates.forEach(polygon => {
+          polygon.forEach(processRing)
+        })
+      }
+    })
+
+    const lineGeometry = new THREE.BufferGeometry()
+    lineGeometry.setAttribute('position', new THREE.Float32BufferAttribute(coastlineVertices, 3))
+
+    const lineMaterial = new THREE.LineBasicMaterial({
+      color: 0x88aacc,
+      opacity: 0.4,
+      transparent: true
+    })
+
+    const coastlines = new THREE.LineSegments(lineGeometry, lineMaterial)
+    this.earthGroup.add(coastlines)
+
+    console.log("🏖️  Coastlines rendered")
+  }
+
+  // ============================================================================
+  // SIMULATION: BACKEND COMMUNICATION
+  // ============================================================================
+
+  /**
+   * MAIN SIMULATION TRIGGER
+   *
+   * Called when user clicks "Run Simulation"
+   *
+   * FLOW:
+   * 1. Collect form parameters (diameter, velocity, angle, location, etc.)
+   * 2. POST to /simulate endpoint
+   * 3. Backend Physics::Engine calculates all effects
+   * 4. Receive JSON response with results, rings, timeline
+   * 5. Process data and start 3D visualization
+   *
+   * PARAMETERS SENT (FormData):
+   * - diameter_m: Impactor diameter (meters)
+   * - density_kg_m3: Impactor density (kg/m³)
+   * - velocity_kms: Impact velocity (km/s)
+   * - impact_angle_deg: Angle from horizontal (5-90°)
+   * - azimuth_deg: Approach direction (0° = N, 90° = E, 180° = S, 270° = W)
+   * - lat, lng: Impact coordinates
+   * - strength_mpa: Material strength (MPa) - determines airburst altitude
+   * - ocean_depth_m: Ocean depth if applicable (triggers tsunami calculations)
+   * - mitigation_type: "none", "kinetic", "nuclear", etc.
+   *
+   * RESPONSE STRUCTURE (from Physics::Engine):
+   * {
+   *   ok: true,
+   *   results: {
+   *     mode: "airburst" | "ground",
+   *     energy_megatons_tnt: float,
+   *     burst_alt_km: float (if airburst),
+   *     final_crater_d_m: float (if ground),
+   *     crater_depth_m: float,
+   *     vaporization_radius_km: float,
+   *     severe_blast_radius_km: float,
+   *     moderate_blast_radius_km: float,
+   *     window_damage_radius_km: float,
+   *     thermal_radiation_radius_km: float,
+   *     seismic_damage_radius_km: float (ground only),
+   *     tsunami_100km_m: float (ocean only),
+   *     damage_assessment: {
+   *       threat_level: "MINIMAL"|"MINOR"|"LOCAL"|"REGIONAL"|"CONTINENTAL"|"EXTINCTION",
+   *       evacuation_radius_km: float,
+   *       ...
+   *     }
+   *   },
+   *   rings: [ { radius_km, color, label, type }, ... ],
+   *   entry_track: [ { lat, lng, altitude_km, velocity_kms, mass_fraction }, ... ],
+   *   timeline: [ ... ],
+   *   visualization: { ... }
+   * }
+   */
+  async simulate(event) {
+    event.preventDefault()
+    this.clearSimulation()
+
+    console.log("🎯 ═══════════════════════════════════════════════════════")
+    console.log("🎯 SIMULATION STARTED")
+    console.log("🎯 ═══════════════════════════════════════════════════════")
+
+    // Check if we have orbital elements data
+    const orbitalDataInput = this.hasOrbitalInputTarget ? this.orbitalInputTarget : null
+    const hasOrbitalData = orbitalDataInput && orbitalDataInput.value && orbitalDataInput.value.trim() !== ''
+
+    if (hasOrbitalData) {
+      console.log("🛰️  ORBITAL MODE: Using Keplerian elements for trajectory calculation")
+    } else {
+      console.log("📍 LEGACY MODE: Using direct lat/lng input")
+    }
+
+    // Build form data - but exclude calculated fields in orbital mode
+    const formData = new FormData()
+
+    // Always include these physical parameters
+    formData.append('diameter_m', this.diameterInputTarget.value)
+    formData.append('density_kg_m3', this.densityInputTarget.value)
+    formData.append('strength_mpa', this.strengthInputTarget.value)
+
+    // If orbital data is available, add it
+    if (hasOrbitalData) {
+      try {
+        const neoData = JSON.parse(orbitalDataInput.value)
+        console.log("📡 NEO Data:", neoData)
+
+        // Add each orbital element as a form field
+        if (neoData.orbital_elements) {
+          const elements = neoData.orbital_elements
+          Object.keys(elements).forEach(key => {
+            formData.append(`orbital_elements[${key}]`, elements[key])
+          })
+          console.log("✅ Orbital elements added to request")
+        }
+
+        // Add encounter time if available (close approach date)
+        if (neoData.close_approach_date) {
+          formData.append('encounter_time', neoData.close_approach_date)
+          console.log(`📅 Encounter time: ${neoData.close_approach_date}`)
+        }
+
+        // In orbital mode, DO NOT send lat/lng/velocity/angle - they will be calculated
+        console.log("⚠️  Skipping lat/lng/velocity/angle - will be calculated from orbit")
+      } catch (error) {
+        console.error("❌ Error parsing orbital data:", error)
+        alert("Error parsing orbital data. Falling back to manual input.")
+        hasOrbitalData = false
+      }
+    }
+
+    // If NOT using orbital data, include manual trajectory parameters
+    if (!hasOrbitalData) {
+      formData.append('velocity_kms', this.velocityInputTarget.value)
+      formData.append('impact_angle_deg', this.angleInputTarget.value)
+      formData.append('azimuth_deg', this.azimuthInputTarget.value)
+      formData.append('lat', this.latInputTarget.value)
+      formData.append('lng', this.lngInputTarget.value)
+    }
+
+    // Include mitigation if present
+    const mitigationSelect = this.formTarget.querySelector('[name="mitigation_type"]')
+    if (mitigationSelect) {
+      formData.append('mitigation_type', mitigationSelect.value)
+    }
+
+    // Log parameters being sent
+    console.log("📊 PARAMETERS SENT TO BACKEND:")
+    if (hasOrbitalData) {
+      console.log("  Physical:")
+      console.log("    - Diameter:", parseFloat(this.diameterInputTarget.value), "m")
+      console.log("    - Density:", parseFloat(this.densityInputTarget.value), "kg/m³")
+      console.log("    - Strength:", parseFloat(this.strengthInputTarget.value), "MPa")
+      console.log("  Orbital (velocity/angle/lat/lng will be calculated by backend):")
+      console.log("    - Using Keplerian elements")
+    } else {
+      console.table({
+        diameter_m: parseFloat(this.diameterInputTarget.value),
+        density_kg_m3: parseFloat(this.densityInputTarget.value),
+        velocity_kms: parseFloat(this.velocityInputTarget.value),
+        impact_angle_deg: parseFloat(this.angleInputTarget.value),
+        azimuth_deg: parseFloat(this.azimuthInputTarget.value),
+        lat: parseFloat(this.latInputTarget.value),
+        lng: parseFloat(this.lngInputTarget.value),
+        strength_mpa: parseFloat(this.strengthInputTarget.value)
+      })
+    }
+
+    if (this.simulateBtnTarget) {
+      this.simulateBtnTarget.disabled = true
+      this.simulateBtnTarget.textContent = hasOrbitalData ? "Calculating Trajectory..." : "Calculating..."
+    }
+
+    try {
+      console.log("📤 Sending POST request to /simulate...")
+      const startTime = performance.now()
+
+      const response = await post("/simulate", {
+        body: formData,
+        responseKind: "json"
+      })
+
+      const elapsedTime = (performance.now() - startTime).toFixed(2)
+      console.log(`✅ Response received in ${elapsedTime}ms`)
+
+      if (!response.ok) {
+        // Try to get error details from response
+        const errorData = await response.json
+        const errorMsg = errorData.error || `HTTP ${response.status}: Simulation failed`
+        console.error("❌ Backend error:", errorData)
+        throw new Error(errorMsg)
+      }
+
+      const data = await response.json
+      if (!data.ok) {
+        console.error("❌ Simulation failed:", data)
+        throw new Error(data.error || "Unknown error")
+      }
+
+      console.log("📥 BACKEND RESPONSE:")
+      console.log("  - Impact:", data.impact)
+      console.log("  - Near Miss:", data.near_miss)
+      if (data.impact) {
+        console.log("  - Mode:", data.results?.mode)
+        console.log("  - Energy:", data.results?.energy_megatons_tnt, "MT TNT")
+        console.log("  - Threat Level:", data.results?.damage_assessment?.threat_level)
+        console.log("  - Damage Rings:", data.rings?.length)
+      } else if (data.near_miss) {
+        console.log("  - Miss Distance:", data.results?.miss_distance_km, "km")
+        console.log("  - Threat Level:", data.results?.threat_level)
+      }
+      console.log("  - Entry Track Points:", data.entry_track?.length)
+      console.log("Full response:", data)
+
+      this.processSimulationData(data)
+
+      // Only start meteor visualization in geocentric view
+      if (this.currentView === this.VIEW_MODES.GEOCENTRIC) {
+        this.startVisualization()
+      }
+
+      console.log("🎯 ═══════════════════════════════════════════════════════")
+
+    } catch (error) {
+      console.error("❌ SIMULATION ERROR:", error)
+      alert("Simulation failed: " + error.message)
+    } finally {
+      if (this.simulateBtnTarget) {
+        this.simulateBtnTarget.disabled = false
+        this.simulateBtnTarget.textContent = "Run Simulation"
+      }
+    }
+  }
+
+  // ============================================================================
+  // ORBITAL PROPAGATOR - Keplerian Orbital Mechanics
+  // ============================================================================
+
+  /**
+   * Calculate orbital trajectory from Keplerian elements
+   * Uses actual orbital mechanics to compute NEO path in 3D space
+   *
+   * @param {Object} orbitalElements - Keplerian elements from SBDB
+   * @param {Number} numPoints - Number of points to generate along orbit
+   * @returns {Array} Array of THREE.Vector3 positions
+   */
+  calculateOrbitalTrajectory(orbitalElements, numPoints = 100) {
+    if (!orbitalElements) return null
+
+    console.log("🛰️  ═══════════════════════════════════════════════════════")
+    console.log("🛰️  ORBITAL PROPAGATOR - Keplerian Elements")
+    console.log("🛰️  ═══════════════════════════════════════════════════════")
+    console.log("📊 Input Elements:")
+    console.log("  - Eccentricity (e):", orbitalElements.eccentricity)
+    console.log("  - Semi-major axis (a):", orbitalElements.semi_major_axis_au, "AU")
+    console.log("  - Inclination (i):", orbitalElements.inclination_deg, "°")
+    console.log("  - Longitude Asc. Node (Ω):", orbitalElements.longitude_ascending_node_deg, "°")
+    console.log("  - Argument Perihelion (ω):", orbitalElements.argument_perihelion_deg, "°")
+    console.log("  - Mean Anomaly (M):", orbitalElements.mean_anomaly_deg, "°")
+
+    const e = orbitalElements.eccentricity
+    const a = orbitalElements.semi_major_axis_au * 149597870.7  // Convert AU to km
+    const i = THREE.MathUtils.degToRad(orbitalElements.inclination_deg)
+    const om = THREE.MathUtils.degToRad(orbitalElements.longitude_ascending_node_deg)
+    const w = THREE.MathUtils.degToRad(orbitalElements.argument_perihelion_deg)
+    const M0 = THREE.MathUtils.degToRad(orbitalElements.mean_anomaly_deg)
+
+    const trajectory = []
+
+    // Generate points along the orbit
+    for (let step = 0; step <= numPoints; step++) {
+      const meanAnomaly = M0 + (step / numPoints) * 2 * Math.PI
+
+      // Solve Kepler's equation: E - e*sin(E) = M (using Newton-Raphson)
+      let E = meanAnomaly
+      for (let iter = 0; iter < 10; iter++) {
+        E = E - (E - e * Math.sin(E) - meanAnomaly) / (1 - e * Math.cos(E))
+      }
+
+      // Calculate position in orbital plane
+      const r = a * (1 - e * Math.cos(E))
+      const x_orbital = r * Math.cos(E) - a * e
+      const y_orbital = r * Math.sin(E) * Math.sqrt(1 - e * e)
+
+      // Transform to 3D space (rotation by i, om, w)
+      const x = (Math.cos(om) * Math.cos(w) - Math.sin(om) * Math.sin(w) * Math.cos(i)) * x_orbital +
+                (-Math.cos(om) * Math.sin(w) - Math.sin(om) * Math.cos(w) * Math.cos(i)) * y_orbital
+
+      const y = (Math.sin(om) * Math.cos(w) + Math.cos(om) * Math.sin(w) * Math.cos(i)) * x_orbital +
+                (-Math.sin(om) * Math.sin(w) + Math.cos(om) * Math.cos(w) * Math.cos(i)) * y_orbital
+
+      const z = (Math.sin(w) * Math.sin(i)) * x_orbital +
+                (Math.cos(w) * Math.sin(i)) * y_orbital
+
+      // Convert from km to Three.js units (scaled to Earth radius)
+      const scale = 1 / 6371  // Earth radius in km
+      trajectory.push(new THREE.Vector3(x * scale, z * scale, -y * scale))
+    }
+
+    console.log("✅ Orbital trajectory calculated:", trajectory.length, "points")
+    console.log("  - Perihelion distance:", (a * (1 - e) / 6371).toFixed(2), "Earth radii")
+    console.log("  - Aphelion distance:", (a * (1 + e) / 6371).toFixed(2), "Earth radii")
+
+    return trajectory
+  }
+
+  /**
+   * Detect if orbital trajectory intersects with Earth
+   * @param {Array} trajectory - Array of THREE.Vector3 positions
+   * @returns {Object|null} {impactPoint, approachDir, impactIndex} or null if miss
+   */
+  detectEarthIntersection(trajectory) {
+    if (!trajectory) return null
+
+    const earthRadius = this.EARTH_R
+
+    console.log("🎯 Checking Earth intersection...")
+
+    for (let i = 1; i < trajectory.length; i++) {
+      const prevPoint = trajectory[i - 1]
+      const currPoint = trajectory[i]
+
+      const prevDist = prevPoint.length()
+      const currDist = currPoint.length()
+
+      // Check if trajectory crosses Earth's surface
+      if (prevDist > earthRadius && currDist <= earthRadius) {
+        console.log("💥 IMPACT DETECTED!")
+        console.log("  - Impact at trajectory point:", i, "/", trajectory.length)
+
+        // Calculate impact point (interpolate to surface)
+        const t = (earthRadius - prevDist) / (currDist - prevDist)
+        const impactPoint = new THREE.Vector3().lerpVectors(prevPoint, currPoint, t)
+
+        // Calculate approach direction
+        const approachDir = new THREE.Vector3().subVectors(currPoint, prevPoint).normalize()
+
+        console.log("  - Impact point:", impactPoint)
+        console.log("  - Approach direction:", approachDir)
+
+        return { impactPoint, approachDir, impactIndex: i }
+      }
+    }
+
+    console.log("✅ No Earth intersection - this is a MISS")
+    return null
+  }
+
+  // ============================================================================
+  // DATA PROCESSING: CONVERTING BACKEND RESULTS TO VISUALIZATION DATA
+  // ============================================================================
+
+  /**
+   * Process backend simulation data and prepare for visualization
+   *
+   * KEY CALCULATION: METEOR TRAJECTORY
+   *
+   * IMPORTANT: The trajectory visualization is SIMPLIFIED for visual appeal.
+   * The actual physics happens in Physics::Entry module on backend.
+   *
+   * BACKEND (Physics::Entry):
+   * - Uses atmospheric density model: ρ = ρ₀ * exp(-h/H), H ≈ 8km
+   * - Calculates drag deceleration: a = (Cd * q * A) / m
+   * - Dynamic pressure: q = 0.5 * ρ_air * v²
+   * - Airburst when q >= material_strength
+   * - Returns actual entry_track with altitude, velocity, mass at each step
+   *
+   * FRONTEND (this method):
+   * - Creates smooth trajectory for VISUALIZATION ONLY
+   * - Linear interpolation between start point and impact point
+   * - Applies smoothstep curve for realistic appearance
+   * - Does NOT attempt to replicate physics calculations
+   *
+   * TRAJECTORY CALCULATION DETAILS:
+   * 1. Start Point: 5 Earth radii away from impact point
+   * 2. Approach Direction: Calculated from azimuth and impact angle
+   *    - azimuth_deg: 0° = from North, 90° = from East, etc.
+   *    - impact_angle_deg: angle from horizontal (grazing = 5°, vertical = 90°)
+   * 3. Path: Smoothstep interpolation (not ballistic arc)
+   *    - Formula: t² * (3 - 2t) creates smooth acceleration
+   * 4. 100 points generated for smooth rendering
+   *
+   * SCIENTIFIC ACCURACY NOTE:
+   * For scientifically accurate trajectory, use backend's entry_track data.
+   * Current implementation prioritizes visual clarity over physical accuracy.
+   *
+   * TO IMPROVE ACCURACY:
+   * - Use data.entry_track from backend instead of linear interpolation
+   * - Map entry_track lat/lng/altitude to 3D positions
+   * - This would show actual atmospheric effects, deceleration, airburst
+   */
+
+  /**
+   * Process near-miss (flyby) scenario
+   * Shows closest approach trajectory without impact effects
+   */
+  processNearMissData(data) {
+    console.log("🌍 ═══════════════════════════════════════════════════════")
+    console.log("🌍 NEAR-MISS FLYBY VISUALIZATION")
+    console.log("🌍 ═══════════════════════════════════════════════════════")
+
+    this.results = data.results || {}
+
+    console.log("📊 Near-Miss Parameters:")
+    console.log("  - Miss Distance:", this.results.miss_distance_km, "km")
+    console.log("  - Closest Approach:", this.results.closest_approach_distance_km, "km")
+    console.log("  - Relative Velocity:", this.results.relative_velocity_kms, "km/s")
+    console.log("  - Threat Level:", this.results.threat_level)
+    console.log("  - Potential Energy (if impact):", this.results.estimated_energy_mt, "MT")
+
+    // Generate flyby trajectory (simple arc past Earth)
+    const missDistanceM = this.results.miss_distance_km * 1000 // Convert to meters
+    const closestApproachRadius = this.EARTH_R + missDistanceM
+
+    this.trajectory = []
+    const numPoints = 100
+
+    for (let i = 0; i <= numPoints; i++) {
+      const t = (i / numPoints) * Math.PI // 0 to PI (half circle)
+      const angle = t - Math.PI / 2 // Center at closest approach
+
+      const x = closestApproachRadius * Math.cos(angle)
+      const y = 0
+      const z = closestApproachRadius * Math.sin(angle)
+
+      this.trajectory.push(new THREE.Vector3(x, y, z))
+    }
+
+    console.log("  ✅ Flyby trajectory generated:", this.trajectory.length, "points")
+
+    // No damage rings for near-miss
+    this.damageRingsData = []
+
+    // Update UI with near-miss information
+    this.updateNearMissUI(data)
+
+    console.log("🌍 ═══════════════════════════════════════════════════════")
+  }
+
+  /**
+   * Update UI to display near-miss information
+   */
+  updateNearMissUI(data) {
+    const results = data.results || {}
+
+    // Update threat level badge
+    if (this.hasThreatLevelTarget) {
+      this.threatLevelTarget.textContent = results.threat_level || "NEAR MISS"
+      this.threatLevelTarget.className = "panel-badge safe"
+    }
+
+    // Update metrics display
+    if (this.hasModeValueTarget) {
+      this.modeValueTarget.textContent = "Near Miss (Flyby)"
+    }
+
+    if (this.hasEnergyValueTarget) {
+      const energy = results.estimated_energy_mt || 0
+      this.energyValueTarget.textContent = `${energy.toFixed(2)} MT (potential)`
+    }
+
+    if (this.hasCraterValueTarget) {
+      this.craterValueTarget.textContent = "N/A (No Impact)"
+    }
+
+    // Show miss distance in vaporization slot
+    if (this.hasVaporizationValueTarget) {
+      const missDistance = results.miss_distance_km || 0
+      this.vaporizationValueTarget.textContent = `${missDistance.toLocaleString()} km`
+      const parentCard = this.vaporizationValueTarget.closest('.damage-card')
+      if (parentCard) {
+        const label = parentCard.querySelector('.damage-label')
+        if (label) label.textContent = "Miss Distance"
+        const icon = parentCard.querySelector('.damage-icon')
+        if (icon) icon.textContent = "🌍"
+      }
+    }
+
+    // Show velocity in thermal slot
+    if (this.hasThermalValueTarget) {
+      const velocity = results.relative_velocity_kms || 0
+      this.thermalValueTarget.textContent = `${velocity.toFixed(2)} km/s`
+      const parentCard = this.thermalValueTarget.closest('.damage-card')
+      if (parentCard) {
+        const label = parentCard.querySelector('.damage-label')
+        if (label) label.textContent = "Rel. Velocity"
+        const icon = parentCard.querySelector('.damage-icon')
+        if (icon) icon.textContent = "🚀"
+      }
+    }
+
+    // Clear blast and tsunami (not applicable)
+    if (this.hasBlastValueTarget) {
+      this.blastValueTarget.textContent = "—"
+      const parentCard = this.blastValueTarget.closest('.damage-card')
+      if (parentCard) {
+        const label = parentCard.querySelector('.damage-label')
+        if (label) label.textContent = "No Impact"
+      }
+    }
+
+    if (this.hasTsunamiValueTarget) {
+      this.tsunamiValueTarget.textContent = "—"
+      const parentCard = this.tsunamiValueTarget.closest('.damage-card')
+      if (parentCard) {
+        const label = parentCard.querySelector('.damage-label')
+        if (label) label.textContent = "Safe Flyby"
+      }
+    }
+
+    console.log("✅ Near-miss UI updated")
+  }
+
+  /**
+   * Update UI to display impact information in heliocentric view
+   */
+  updateImpactUI(data) {
+    const results = data.results || {}
+
+    // Update threat level badge
+    if (this.hasThreatLevelTarget) {
+      this.threatLevelTarget.textContent = "IMPACT DETECTED"
+      this.threatLevelTarget.className = "panel-badge critical"
+    }
+
+    // Update metrics display with impact preview
+    if (this.hasModeValueTarget) {
+      this.modeValueTarget.textContent = results.mode || "Impact"
+    }
+
+    if (this.hasEnergyValueTarget) {
+      const energy = results.energy_megatons_tnt || 0
+      this.energyValueTarget.textContent = `${energy.toFixed(2)} MT TNT`
+    }
+
+    // Show coordinates in vaporization slot
+    if (this.hasVaporizationValueTarget && results.location) {
+      const lat = results.location.lat || 0
+      const lng = results.location.lng || 0
+      this.vaporizationValueTarget.textContent = `${lat.toFixed(2)}°, ${lng.toFixed(2)}°`
+      const parentCard = this.vaporizationValueTarget.closest('.damage-card')
+      if (parentCard) {
+        const label = parentCard.querySelector('.damage-label')
+        if (label) label.textContent = "Impact Location"
+        const icon = parentCard.querySelector('.damage-icon')
+        if (icon) icon.textContent = "📍"
+      }
+    }
+
+    // Add button to view detailed impact analysis
+    this.addViewSwitchButton(data)
+
+    console.log("✅ Impact UI updated (heliocentric view)")
+  }
+
+  /**
+   * Add button to switch to geocentric impact view
+   */
+  addViewSwitchButton(data) {
+    // Check if button already exists
+    if (document.getElementById('view-impact-btn')) return
+
+    // Find metrics panel
+    const metricsPanel = this.hasMetricsTarget ? this.metricsTarget : null
+    if (!metricsPanel) return
+
+    // Create button
+    const button = document.createElement('button')
+    button.id = 'view-impact-btn'
+    button.className = 'btn btn-primary'
+    button.style.width = '100%'
+    button.style.marginTop = '1rem'
+    button.innerHTML = '📊 Analyze Impact Effects'
+
+    // Add click handler
+    button.addEventListener('click', () => {
+      this.switchToGeocentricView(data)
+    })
+
+    metricsPanel.appendChild(button)
+  }
+
+  /**
+   * Switch from heliocentric to geocentric view for impact analysis
+   */
+  switchToGeocentricView(data) {
+    console.log("🔄 Switching to geocentric view...")
+
+    // Update view state
+    this.currentView = this.VIEW_MODES.GEOCENTRIC
+
+    // Clear heliocentric objects
+    this.clearHeliocentricObjects()
+
+    // Setup geocentric view
+    this.setupEarth()
+    this.loadGeography()
+
+    // Process impact data in geocentric mode
+    this.processGeocentricImpact(data)
+
+    // Update camera
+    this.setupGeocentricCamera()
+
+    console.log("✅ Switched to geocentric view")
+  }
+
+  /**
+   * Clear heliocentric objects when switching views
+   */
+  clearHeliocentricObjects() {
+    // Remove Sun
+    if (this.sun) {
+      this.scene.remove(this.sun)
+      this.sun = null
+    }
+    if (this.sunGlow) {
+      this.scene.remove(this.sunGlow)
+      this.sunGlow = null
+    }
+
+    // Remove Earth orbit
+    if (this.earthOrbitLine) {
+      this.scene.remove(this.earthOrbitLine)
+      this.earthOrbitLine = null
+    }
+    if (this.orbitalEarth) {
+      this.scene.remove(this.orbitalEarth)
+      this.orbitalEarth = null
+    }
+
+    // Remove NEO orbit
+    if (this.neoOrbitLine) {
+      this.scene.remove(this.neoOrbitLine)
+      this.neoOrbitLine = null
+    }
+    if (this.neoMesh) {
+      this.scene.remove(this.neoMesh)
+      this.neoMesh = null
+    }
+
+    // Remove encounter marker
+    if (this.encounterMarker) {
+      this.scene.remove(this.encounterMarker)
+      this.encounterMarker = null
+    }
+  }
+
+  /**
+   * Setup camera for geocentric view
+   */
+  setupGeocentricCamera() {
+    this.camera.position.set(0, this.EARTH_R * 2, this.EARTH_R * 3)
+    this.camera.lookAt(0, 0, 0)
+
+    if (this.controls) {
+      this.controls.target.set(0, 0, 0)
+      this.controls.minDistance = this.EARTH_R * 0.05
+      this.controls.maxDistance = this.EARTH_R * 10
+      this.controls.enablePan = true  // Allow panning in geocentric view
+      this.controls.autoRotate = false  // No auto-rotation in geocentric
+      this.controls.update()
+    }
+  }
+
+  /**
+   * Process impact data for geocentric visualization
+   */
+  processGeocentricImpact(data) {
+    // This will process the impact visualization in geocentric mode
+    // Using the existing damage rings and trajectory visualization
+
+    // The rest of processSimulationData handles this
+    // We'll just set a flag to ensure we're in the right mode
+    this.currentView = this.VIEW_MODES.GEOCENTRIC
+
+    // Reprocess the data in geocentric mode
+    // This is a simplified approach - in production you'd optimize this
+    this.processSimulationData(data)
+  }
+
+  processSimulationData(data) {
+    console.log("🔄 ═══════════════════════════════════════════════════════")
+    console.log("🔄 PROCESSING SIMULATION DATA")
+    console.log("🔄 ═══════════════════════════════════════════════════════")
+
+    this.simulationData = data
+
+    // -------------------------------------------------------------------------
+    // CHECK FOR ORBITAL DATA (for heliocentric view)
+    // -------------------------------------------------------------------------
+    let hasOrbitalData = false
+    let orbitalElements = null
+
+    if (this.hasOrbitalInputTarget && this.orbitalInputTarget.value) {
+      try {
+        const neoData = JSON.parse(this.orbitalInputTarget.value)
+        if (neoData.orbital_elements) {
+          orbitalElements = neoData.orbital_elements
+          hasOrbitalData = true
+          console.log("🛰️ Orbital elements detected - using heliocentric view")
+        }
+      } catch (e) {
+        console.warn("⚠️ Failed to parse orbital data")
+      }
+    }
+
+    // -------------------------------------------------------------------------
+    // HELIOCENTRIC VIEW MODE (when orbital data available)
+    // -------------------------------------------------------------------------
+    if (hasOrbitalData && this.currentView === this.VIEW_MODES.HELIOCENTRIC) {
+      console.log("🌟 Processing in HELIOCENTRIC mode")
+
+      // Get encounter time from NEO data
+      let encounterTime = null
+      if (this.hasOrbitalInputTarget && this.orbitalInputTarget.value) {
+        try {
+          const neoData = JSON.parse(this.orbitalInputTarget.value)
+          if (neoData.close_approach_date) {
+            encounterTime = new Date(neoData.close_approach_date)
+            console.log(`  📅 Encounter time: ${encounterTime}`)
+          }
+        } catch (e) {
+          console.warn("⚠️ Could not parse encounter time")
+        }
+      }
+
+      // Create NEO orbit and position at encounter time
+      this.createNeoOrbit(orbitalElements, encounterTime)
+
+      // Position Earth and NEO at encounter time using BACKEND-CALCULATED positions
+      // for scientific accuracy
+      if (data.visualization && data.visualization.earth_position && data.visualization.neo_position) {
+        console.log("🔬 Using scientifically accurate positions from backend")
+        this.positionObjectsFromBackendData(data.visualization)
+      } else if (encounterTime) {
+        console.log("⚠️ Backend positions not available, using frontend approximations")
+        this.positionEarthAtTime(encounterTime)
+      }
+
+      // Show encounter point
+      this.showEncounterPoint(data)
+
+      // Add velocity vectors
+      this.addVelocityVectors(data)
+
+      // Setup timeline controls
+      this.setupOrbitalTimeline(encounterTime)
+
+      // Update UI with simulation results
+      if (data.near_miss) {
+        this.updateNearMissUI(data)
+      } else if (data.impact) {
+        this.updateImpactUI(data)
+      }
+
+      // Store data for potential view switch
+      this.heliocentricData = {
+        orbitalElements: orbitalElements,
+        simulationData: data,
+        encounterTime: encounterTime
+      }
+
+      return  // Don't process geocentric visualization
+    }
+
+    // -------------------------------------------------------------------------
+    // GEOCENTRIC VIEW MODE (traditional impact visualization)
+    // -------------------------------------------------------------------------
+    console.log("🌍 Processing in GEOCENTRIC mode")
+
+    // Handle near-miss in geocentric view
+    if (data.near_miss && !data.impact) {
+      console.log("🌍 NEAR MISS DETECTED - Processing flyby visualization")
+      this.processNearMissData(data)
+      return
+    }
+
+    console.log("💥 IMPACT DETECTED - Processing impact visualization")
+
+    // -------------------------------------------------------------------------
+    // STEP 1: Recheck orbital elements for trajectory calculation
+    // -------------------------------------------------------------------------
+    // Note: orbitalElements already declared above, just check if we're using orbital trajectory
+    let usingOrbitalTrajectory = false
+
+    if (orbitalElements) {
+      console.log("🛰️  Using orbital elements for trajectory calculation")
+      usingOrbitalTrajectory = true
+    }
+
+    let impactPoint = null
+    let impactLat = null
+    let impactLng = null
+
+    // -------------------------------------------------------------------------
+    // STEP 2: Calculate trajectory - Check for NEO close approach data FIRST
+    // -------------------------------------------------------------------------
+
+    //NOTE: Keplerian orbital elements are HELIOCENTRIC (Sun-centered)
+    // We need GEOCENTRIC (Earth-centered) data for visualization
+    // Solution: Use NEO close_approach data (already Earth-relative!)
+
+    // Get NEO data from hidden input (populated by neo_selector_controller)
+    let neoMissDistanceKm = null
+    let neoVelocityKms = null
+
+    if (orbitalElements && this.hasOrbitalInputTarget) {
+      // Parse NEO data that was stored alongside orbital elements
+      try {
+        const neoDataStr = this.orbitalInputTarget.value
+        if (neoDataStr) {
+          const fullNeoData = JSON.parse(neoDataStr)
+          // The controller should have stored full NEO data including approach info
+          console.log("🛰️  Checking NEO close approach data...")
+        }
+      } catch (e) {
+        console.warn("⚠️  Could not parse NEO data")
+      }
+    }
+
+    // Simplified approach: Use form data to determine impact vs flyby
+    impactLat = parseFloat(this.latInputTarget.value) || 0
+    impactLng = parseFloat(this.lngInputTarget.value) || 0
+
+    if (impactLat !== 0 || impactLng !== 0) {
+      // ========================================================================
+      // SIMPLIFIED TRAJECTORY: Manual lat/lng/azimuth input
+      // ========================================================================
+      console.log("🚀 Trajectory: SIMPLIFIED MODEL (Manual Parameters)")
+      console.log("  📍 Using form-specified impact location")
+
+      impactLat = parseFloat(this.latInputTarget.value) || 0
+      impactLng = parseFloat(this.lngInputTarget.value) || 0
+      impactPoint = this.latLngToVector3(impactLat, impactLng, this.EARTH_R)
+
+      console.log("  - Impact Latitude:", impactLat, "°")
+      console.log("  - Impact Longitude:", impactLng, "°")
+      console.log("  - Impact Point (3D):", impactPoint)
+
+      const velocity = parseFloat(this.velocityInputTarget.value) || 20
+      const angle = parseFloat(this.angleInputTarget.value) || 45
+      const azimuth = parseFloat(this.azimuthInputTarget.value) || 0
+
+      console.log("  - Velocity:", velocity, "km/s")
+      console.log("  - Impact Angle:", angle, "°")
+      console.log("  - Azimuth:", azimuth, "°")
+
+      // Convert angles to radians
+      const angleRad = THREE.MathUtils.degToRad(angle)
+      const azimuthRad = THREE.MathUtils.degToRad(azimuth)
+
+      // Calculate approach direction vector
+      const approachDir = new THREE.Vector3(
+        Math.sin(azimuthRad) * Math.sin(angleRad),
+        Math.cos(angleRad),
+        Math.cos(azimuthRad) * Math.sin(angleRad)
+      ).normalize()
+
+      // Start point: 5 Earth radii away
+      const startDistance = this.EARTH_R * 5
+      const startPoint = impactPoint.clone().add(approachDir.clone().multiplyScalar(startDistance))
+
+      // Generate trajectory with smoothstep
+      this.trajectory = []
+      const numPoints = 100
+
+      for (let i = 0; i <= numPoints; i++) {
+        const t = i / numPoints
+        const curveT = t * t * (3 - 2 * t)
+        const point = new THREE.Vector3().lerpVectors(startPoint, impactPoint, curveT)
+        this.trajectory.push(point)
+      }
+
+      console.log("  ✅ Simplified trajectory generated:", this.trajectory.length, "points")
+    }
+
+    // -------------------------------------------------------------------------
+    // STEP 3: Process damage rings from Physics::Engine
+    // -------------------------------------------------------------------------
+    console.log("💥 Processing Damage Rings:")
+
+    this.damageRingsData = (data.rings || []).map(ring => {
+      console.log(`  - ${ring.label}: ${ring.radius_km} km (${ring.type})`)
+      return {
+        radius: ring.radius_km * 1000,  // Convert km to meters
+        color: ring.color || "#ff0000",
+        label: ring.label || "Damage",
+        type: ring.type || "unknown"
+      }
+    })
+
+    console.log("  ✅ Total rings:", this.damageRingsData.length)
+
+    // -------------------------------------------------------------------------
+    // STEP 4: Store results for UI display
+    // -------------------------------------------------------------------------
+    this.results = data.results || {}
+
+    console.log("📊 Simulation Results Summary:")
+    console.log("  - Mode:", this.results.mode)
+    console.log("  - Energy:", this.results.energy_megatons_tnt, "MT TNT")
+
+    if (this.results.mode === "airburst") {
+      console.log("  - Airburst Altitude:", this.results.burst_alt_km, "km")
+    } else {
+      console.log("  - Crater Diameter:", this.results.final_crater_d_m, "m")
+      console.log("  - Crater Depth:", this.results.crater_depth_m, "m")
+    }
+
+    console.log("  - Vaporization Radius:", this.results.vaporization_radius_km, "km")
+    console.log("  - Severe Blast Radius:", this.results.severe_blast_radius_km, "km")
+    console.log("  - Thermal Radius:", this.results.thermal_radiation_radius_km, "km")
+
+    if (this.results.tsunami_100km_m) {
+      console.log("  - Tsunami @ 100km:", this.results.tsunami_100km_m, "meters")
+    }
+
+    // Update metrics display in UI
+    this.updateMetrics()
+
+    // Increment simulation counter
+    this.simCount++
+    if (this.simCountTarget) {
+      this.simCountTarget.textContent = `${this.simCount} Simulations`
+    }
+
+    console.log("🔄 ═══════════════════════════════════════════════════════")
+    console.log("")
+  }
+
+  // ============================================================================
+  // VISUALIZATION: 3D RENDERING
+  // ============================================================================
+
+  /**
+   * Start the visualization playback
+   * Creates meteor object and initiates camera tracking
+   */
+  startVisualization() {
+    console.log("🎬 Starting visualization playback...")
+
+    // Create meteor
+    this.createMeteor()
+
+    // Position camera behind meteor looking at Earth
+    this.cameraFollowing = true
+    this.controls.enabled = false
+
+    console.log("  - Camera following meteor: enabled")
+
+    // Start playback
+    this.playing = true
+    this.simulationStartTime = Date.now()
+    this.impactOccurred = false
+
+    if (this.timelineTarget) {
+      this.timelineTarget.style.display = "block"
+    }
+
+    if (this.playBtnTarget) {
+      this.playBtnTarget.textContent = "⏸"
+    }
+
+    console.log("  ✅ Visualization started (duration:", this.simulationDuration / 1000, "seconds)")
+  }
+
+  /**
+   * Create meteor 3D object with glow effect
+   *
+   * VISUAL SCALE CALCULATION:
+   * - Actual impactor: diameter_m (e.g., 500m)
+   * - Visual scale: diameter_m * 45 (capped at 20km)
+   * - Reason: Small impactors would be invisible at Earth scale
+   * - This is VISUALIZATION ONLY, does not affect physics
+   */
+  createMeteor() {
+    const diameter = parseFloat(this.diameterInputTarget.value) || 500
+    const visualScale = Math.min(diameter * 45, 20000)  // Visual exaggeration for visibility
+
+    console.log("☄️  Creating meteor:")
+    console.log("  - Actual diameter:", diameter, "m")
+    console.log("  - Visual scale:", visualScale, "m (exaggerated for visibility)")
+
+    // Core meteor (rough surface)
+    const meteorGeometry = new THREE.IcosahedronGeometry(visualScale, 1)
+    const meteorMaterial = new THREE.MeshPhongMaterial({
+      color: 0x886644,
+      emissive: 0xff6600,
+      emissiveIntensity: 0.5,
+      shininess: 10
+    })
+
+    this.meteorObject = new THREE.Mesh(meteorGeometry, meteorMaterial)
+    this.meteorObject.position.copy(this.trajectory[0])
+    this.scene.add(this.meteorObject)
+
+    // Add glow sphere around meteor (atmospheric heating)
+    const glowGeometry = new THREE.SphereGeometry(visualScale * 1.5, 16, 16)
+    const glowMaterial = new THREE.MeshBasicMaterial({
+      color: 0xffaa00,
+      transparent: true,
+      opacity: 0.3
+    })
+    this.meteorGlow = new THREE.Mesh(glowGeometry, glowMaterial)
+    this.meteorObject.add(this.meteorGlow)
+
+    // Create trail line (plasma trail)
+    const trailGeometry = new THREE.BufferGeometry().setFromPoints([this.trajectory[0]])
+    const trailMaterial = new THREE.LineBasicMaterial({
+      color: 0xffaa00,
+      opacity: 0.6,
+      transparent: true,
+      linewidth: 2
+    })
+    this.trailLine = new THREE.Line(trailGeometry, trailMaterial)
+    this.scene.add(this.trailLine)
+
+    console.log("  ✅ Meteor created at start position")
+  }
+
+  /**
+   * Update meteor position along trajectory
+   *
+   * @param {number} progress - Animation progress (0.0 to 1.0)
+   *
+   * ATMOSPHERIC EFFECTS (last 20% of journey):
+   * - Increased emissive intensity (brighter glow)
+   * - Color shift from orange to white-hot
+   * - Increased opacity
+   *
+   * These effects are VISUAL ONLY. Actual atmospheric entry physics
+   * calculated by Physics::Entry module (drag, heating, fragmentation).
+   */
+  updateMeteorPosition(progress) {
+    if (!this.meteorObject || this.trajectory.length < 2) return
+
+    const index = Math.floor(progress * (this.trajectory.length - 1))
+    const nextIndex = Math.min(index + 1, this.trajectory.length - 1)
+    const localProgress = (progress * (this.trajectory.length - 1)) % 1
+
+    // Interpolate position between trajectory points
+    const currentPos = this.trajectory[index]
+    const nextPos = this.trajectory[nextIndex]
+    this.meteorObject.position.lerpVectors(currentPos, nextPos, localProgress)
+
+    // Log position every 10% of progress
+    if (index % 10 === 0) {
+      const altitude = this.meteorObject.position.length() - this.EARTH_R
+      console.log(`  📍 Progress: ${(progress * 100).toFixed(1)}% | Altitude: ${(altitude / 1000).toFixed(1)} km`)
+    }
+
+    // Update trail (show path traveled so far)
+    const trailPoints = this.trajectory.slice(0, Math.max(1, index + 1))
+    this.trailLine.geometry.setFromPoints(trailPoints)
+
+    // Intensify glow when entering atmosphere (last 20% of journey)
+    // Simulates atmospheric compression heating
+    if (progress > 0.8) {
+      const atmosphereProgress = (progress - 0.8) * 5  // 0 to 1 over last 20%
+
+      // Increase brightness
+      this.meteorObject.material.emissiveIntensity = 0.5 + atmosphereProgress * 2
+
+      if (this.meteorGlow) {
+        // Increase glow opacity
+        this.meteorGlow.material.opacity = 0.3 + atmosphereProgress * 0.5
+
+        // Color shift: orange → yellow → white-hot
+        // HSL: Hue 0.08 (orange) → 0.0 (red-white)
+        this.meteorGlow.material.color.setHSL(
+          0.08 - atmosphereProgress * 0.08,  // Hue
+          1,  // Saturation
+          0.5 + atmosphereProgress * 0.3  // Lightness (brighter)
+        )
+      }
+
+      if (atmosphereProgress > 0) {
+        console.log(`  🔥 Atmospheric heating: ${(atmosphereProgress * 100).toFixed(0)}%`)
+      }
+    }
+
+    // Update camera to follow meteor
+    if (this.cameraFollowing) {
+      this.updateFollowCamera(progress)
+    }
+  }
+
+  /**
+   * Update camera to follow meteor during approach
+   *
+   * CAMERA POSITIONING:
+   * - Position: Behind and slightly above meteor
+   * - Target: Slightly ahead of meteor (anticipatory tracking)
+   * - Smooth lerp: Gradual movement for cinematic feel
+   *
+   * This creates a dramatic "chase cam" perspective
+   */
+  updateFollowCamera(progress) {
+    const meteorPos = this.meteorObject.position
+    const earthCenter = new THREE.Vector3(0, 0, 0)
+
+    // Calculate direction from meteor to Earth
+    const meteorToEarth = earthCenter.clone().sub(meteorPos).normalize()
+
+    // Camera offset: behind the meteor
+    const cameraOffset = meteorToEarth.clone().multiplyScalar(-this.EARTH_R * 0.5)
+    const cameraUp = new THREE.Vector3(0, 1, 0)
+    const cameraSide = meteorToEarth.clone().cross(cameraUp).normalize()
+
+    // Add offsets to see both meteor and Earth
+    const targetCameraPos = meteorPos.clone()
+      .add(cameraOffset)
+      .add(cameraUp.clone().multiplyScalar(this.EARTH_R * 0.2))  // Slightly above
+      .add(cameraSide.clone().multiplyScalar(this.EARTH_R * 0.1))  // Slightly to side
+
+    // Smooth camera movement (lerp factor 0.05 = gradual)
+    this.camera.position.lerp(targetCameraPos, 0.05)
+
+    // Look ahead of the meteor slightly (anticipatory tracking)
+    const lookAheadIndex = Math.min(
+      Math.floor((progress + 0.05) * (this.trajectory.length - 1)),
+      this.trajectory.length - 1
+    )
+    const lookTarget = this.trajectory[lookAheadIndex]
+    this.camera.lookAt(lookTarget)
+  }
+
+  /**
+   * Trigger impact visual effects
+   *
+   * IMPACT SEQUENCE:
+   * 1. Create bright flash (expanding sphere)
+   * 2. Remove meteor object
+   * 3. Create damage rings (from Physics::Engine results)
+   * 4. Add info overlays
+   * 5. Transition camera to overview
+   *
+   * Flash duration: 2 seconds
+   * Ring animation: Staggered by 300ms each
+   */
+  triggerImpact() {
+    if (this.impactOccurred) return
+    this.impactOccurred = true
+
+    console.log("💥 ═══════════════════════════════════════════════════════")
+    console.log("💥 IMPACT!")
+    console.log("💥 ═══════════════════════════════════════════════════════")
+
+    const impactLat = parseFloat(this.latInputTarget.value) || 0
+    const impactLng = parseFloat(this.lngInputTarget.value) || 0
+    const impactPoint = this.latLngToVector3(impactLat, impactLng, this.EARTH_R)
+
+    console.log("  - Location:", impactLat, "°,", impactLng, "°")
+    console.log("  - Mode:", this.results.mode)
+    console.log("  - Energy:", this.results.energy_megatons_tnt, "MT TNT")
+
+    // Impact flash (brief white sphere)
+    const flashGeometry = new THREE.SphereGeometry(50000, 16, 16)
+    const flashMaterial = new THREE.MeshBasicMaterial({
+      color: 0xffffff,
+      transparent: true,
+      opacity: 1
+    })
+    const flash = new THREE.Mesh(flashGeometry, flashMaterial)
+    flash.position.copy(impactPoint)
+    this.scene.add(flash)
+
+    console.log("  💡 Impact flash created")
+
+    // Animate flash (expand and fade)
+    const flashDuration = 2000
+    const flashStart = Date.now()
+    const animateFlash = () => {
+      const elapsed = Date.now() - flashStart
+      if (elapsed < flashDuration) {
+        const progress = elapsed / flashDuration
+        flash.scale.setScalar(1 + progress * 5)  // Expand
+        flash.material.opacity = 1 - progress  // Fade
+        requestAnimationFrame(animateFlash)
+      } else {
+        this.scene.remove(flash)
+        flash.geometry.dispose()
+        flash.material.dispose()
+      }
+    }
+    animateFlash()
+
+    // Remove meteor
+    if (this.meteorObject) {
+      this.scene.remove(this.meteorObject)
+      this.meteorObject = null
+    }
+
+    // Add damage rings (from Physics::Engine calculations)
+    this.createDamageVisualization(impactLat, impactLng)
+
+    // Add information overlays
+    this.createInfoOverlays(impactLat, impactLng)
+
+    // Transition camera to overview
+    this.cameraFollowing = false
+    this.transitionCameraToOverview(impactPoint)
+
+    console.log("💥 ═══════════════════════════════════════════════════════")
+    console.log("")
+  }
+
+  /**
+   * Create damage ring visualizations
+   * Staggered animation for dramatic effect
+   */
+  createDamageVisualization(lat, lng) {
+    console.log("🎨 Creating damage rings visualization...")
+
+    this.damageRingsData.forEach((ringData, index) => {
+      setTimeout(() => {
+        const ring = this.createDamageRing(lat, lng, ringData)
+        this.scene.add(ring)
+        this.damageRings.push(ring)
+
+        console.log(`  ✅ Ring ${index + 1}: ${ringData.label} (${(ringData.radius / 1000).toFixed(1)} km)`)
+      }, index * 300)  // Stagger by 300ms
+    })
+  }
+
+  /**
+   * Create a single damage ring on Earth's surface
+   *
+   * GEODESIC CALCULATION:
+   * - Uses calculateGeodesicPoint() to find points at fixed distance from impact
+   * - Creates circle using great-circle distance (accounts for Earth curvature)
+   * - 128 segments for smooth appearance
+   *
+   * PHYSICS CONNECTION:
+   * Ring radii calculated by backend modules:
+   * - Vaporization: Physics::Blast (extreme temperatures)
+   * - Severe blast: Physics::Blast (overpressure > 20 psi)
+   * - Thermal: Physics::Thermal (3rd degree burns)
+   * - Seismic: Physics::Seismic (ground damage)
+   * - Ejecta: Physics::Ejecta (debris fallout)
+   * - Tsunami: Physics::Tsunami (wave height zones)
+   */
+  createDamageRing(lat, lng, ringData) {
+    const { radius, color, label } = ringData
+    const segments = 128
+    const points = []
+
+    console.log(`  🎨 Rendering ring: ${label}`)
+    console.log(`     - Radius: ${(radius / 1000).toFixed(1)} km`)
+    console.log(`     - Color: ${color}`)
+
+    // Create ring on Earth surface using geodesic calculation
+    for (let i = 0; i <= segments; i++) {
+      const angle = (i / segments) * Math.PI * 2
+      const bearing = angle * 180 / Math.PI
+
+      // Calculate point on Earth surface at given distance and bearing
+      const point = this.calculateGeodesicPoint(lat, lng, bearing, radius)
+      const vec = this.latLngToVector3(point.lat, point.lng, this.EARTH_R + 100)
+      points.push(vec)
+    }
+
+    const geometry = new THREE.BufferGeometry().setFromPoints(points)
+    const material = new THREE.LineBasicMaterial({
+      color: new THREE.Color(color),
+      opacity: 0.8,
+      transparent: true,
+      linewidth: 2
+    })
+
+    const ring = new THREE.Line(geometry, material)
+
+    // Add label sprite
+    if (label) {
+      const labelSprite = this.createTextSprite(label, color)
+      const labelPoint = this.calculateGeodesicPoint(lat, lng, 0, radius)
+      const labelPos = this.latLngToVector3(labelPoint.lat, labelPoint.lng, this.EARTH_R + 5000)
+      labelSprite.position.copy(labelPos)
+      ring.add(labelSprite)
+    }
+
+    // Animate ring appearance (expand from center)
+    ring.scale.setScalar(0)
+    const animateRing = () => {
+      if (ring.scale.x < 1) {
+        ring.scale.addScalar(0.05)
+        requestAnimationFrame(animateRing)
+      }
+    }
+    animateRing()
+
+    return ring
+  }
+
+  /**
+   * Calculate point on Earth surface given start point, bearing, and distance
+   *
+   * GEODESIC (GREAT CIRCLE) CALCULATION:
+   * Uses spherical trigonometry to find destination point
+   *
+   * Formulas (from Aviation Formulary):
+   * lat₂ = asin(sin(lat₁) * cos(δ) + cos(lat₁) * sin(δ) * cos(θ))
+   * lng₂ = lng₁ + atan2(sin(θ) * sin(δ) * cos(lat₁), cos(δ) - sin(lat₁) * sin(lat₂))
+   *
+   * Where:
+   * - δ (delta) = distance / Earth_radius (angular distance)
+   * - θ (theta) = bearing (direction of travel)
+   * - lat₁, lng₁ = starting coordinates
+   * - lat₂, lng₂ = destination coordinates
+   *
+   * This is the same calculation used in Physics::Utils::gc_destination
+   *
+   * @param {number} lat - Starting latitude (degrees)
+   * @param {number} lng - Starting longitude (degrees)
+   * @param {number} bearing - Direction of travel (degrees, 0 = North)
+   * @param {number} distance - Distance to travel (meters)
+   * @returns {object} { lat, lng } destination point
+   */
+  calculateGeodesicPoint(lat, lng, bearing, distance) {
+    const R = this.EARTH_R
+    const φ1 = lat * Math.PI / 180  // Latitude in radians
+    const λ1 = lng * Math.PI / 180  // Longitude in radians
+    const θ = bearing * Math.PI / 180  // Bearing in radians
+    const δ = distance / R  // Angular distance
+
+    const sinφ1 = Math.sin(φ1)
+    const cosφ1 = Math.cos(φ1)
+    const sinδ = Math.sin(δ)
+    const cosδ = Math.cos(δ)
+    const sinθ = Math.sin(θ)
+    const cosθ = Math.cos(θ)
+
+    // Destination latitude
+    const sinφ2 = sinφ1 * cosδ + cosφ1 * sinδ * cosθ
+    const φ2 = Math.asin(sinφ2)
+
+    // Destination longitude
+    const y = sinθ * sinδ * cosφ1
+    const x = cosδ - sinφ1 * sinφ2
+    const λ2 = λ1 + Math.atan2(y, x)
+
+    return {
+      lat: φ2 * 180 / Math.PI,
+      lng: ((λ2 * 180 / Math.PI) + 540) % 360 - 180  // Normalize to [-180, 180]
+    }
+  }
+
+  /**
+   * Create text sprite (canvas-based texture)
+   * Used for ring labels and info overlays
+   */
+  createTextSprite(text, color = "#ffffff") {
+    const canvas = document.createElement('canvas')
+    canvas.width = 256
+    canvas.height = 64
+
+    const ctx = canvas.getContext('2d')
+    ctx.fillStyle = 'rgba(0, 0, 0, 0.7)'
+    ctx.fillRect(0, 0, 256, 64)
+
+    ctx.fillStyle = color
+    ctx.font = 'bold 20px Arial'
+    ctx.textAlign = 'center'
+    ctx.textBaseline = 'middle'
+    ctx.fillText(text, 128, 32)
+
+    const texture = new THREE.CanvasTexture(canvas)
+    const material = new THREE.SpriteMaterial({ map: texture, transparent: true })
+    const sprite = new THREE.Sprite(material)
+    sprite.scale.set(40000, 10000, 1)
+
+    return sprite
+  }
+
+  /**
+   * Create floating info cards around impact site
+   * Displays key results from Physics::Engine
+   */
+  createInfoOverlays(lat, lng) {
+    console.log("📊 Creating info overlays...")
+
+    const infoData = [
+      { label: "Energy", value: `${this.results.energy_megatons_tnt?.toFixed(1) || 0} MT`, angle: 0 },
+      { label: "Mode", value: this.results.mode || 'Unknown', angle: 90 },
+      { label: "Crater", value: `${this.results.final_crater_d_m?.toFixed(0) || 0} m`, angle: 180 },
+      { label: "Threat", value: this.results.damage_assessment?.threat_level || 'Unknown', angle: 270 }
+    ]
+
+    // Position overlays outside largest damage ring
+    const infoDistance = Math.max(100000, (this.damageRingsData[0]?.radius || 100000) * 1.5)
+
+    infoData.forEach(info => {
+      const sprite = this.createTextSprite(`${info.label}: ${info.value}`)
+      const infoPoint = this.calculateGeodesicPoint(lat, lng, info.angle, infoDistance)
+      const position = this.latLngToVector3(infoPoint.lat, infoPoint.lng, this.EARTH_R + 50000)
+      sprite.position.copy(position)
+      sprite.scale.set(60000, 15000, 1)
+      this.scene.add(sprite)
+      this.infoOverlays.push(sprite)
+
+      console.log(`  - ${info.label}: ${info.value}`)
+    })
+  }
+
+  /**
+   * Smoothly transition camera to overhead view of impact site
+   *
+   * CAMERA POSITIONING:
+   * - Distance: Based on largest damage ring (to fit all in view)
+   * - Position: Along radial from Earth center through impact point
+   * - Transition: 3 second ease-in-out cubic
+   * - After transition: Re-enable orbit controls for user exploration
+   */
+  transitionCameraToOverview(impactPoint) {
+    console.log("📷 Transitioning camera to overview...")
+
+    // Calculate ideal overview position based on largest damage ring
+    const maxRadius = Math.max(...this.damageRingsData.map(r => r.radius), 100000)
+    const overviewDistance = this.EARTH_R + maxRadius * 3
+    const overviewPosition = impactPoint.clone().normalize().multiplyScalar(overviewDistance)
+
+    console.log("  - Target distance:", (overviewDistance / 1000).toFixed(0), "km")
+    console.log("  - Fitting rings up to:", (maxRadius / 1000).toFixed(1), "km radius")
+
+    // Smooth transition
+    const transitionDuration = 3000
+    const startPosition = this.camera.position.clone()
+    const startTime = Date.now()
+
+    const animateCamera = () => {
+      const elapsed = Date.now() - startTime
+      const progress = Math.min(elapsed / transitionDuration, 1)
+      const easedProgress = this.easeInOutCubic(progress)
+
+      this.camera.position.lerpVectors(startPosition, overviewPosition, easedProgress)
+      this.camera.lookAt(impactPoint)
+
+      if (progress < 1) {
+        requestAnimationFrame(animateCamera)
+      } else {
+        // Re-enable controls after transition
+        this.controls.enabled = true
+        this.controls.target.copy(impactPoint)
+        console.log("  ✅ Camera transition complete")
+      }
+    }
+    animateCamera()
+  }
+
+  /**
+   * Update metrics display in UI
+   * Maps Physics::Engine results to DOM elements
+   */
+  updateMetrics() {
+    const r = this.results
+
+    console.log("📊 Updating UI metrics...")
+
+    // Threat level (with color coding)
+    if (this.threatLevelTarget) {
+      const level = r.damage_assessment?.threat_level || "UNKNOWN"
+      this.threatLevelTarget.textContent = level
+      this.threatLevelTarget.className = `panel-badge ${this.getThreatClass(level)}`
+      console.log("  - Threat Level:", level)
+    }
+
+    // Helper to update value targets
+    const updateValue = (target, value, suffix = "") => {
+      if (target) target.textContent = value ? `${value}${suffix}` : "—"
+    }
+
+    updateValue(this.energyValueTarget, r.energy_megatons_tnt?.toFixed(1), " MT")
+    updateValue(this.craterValueTarget, r.final_crater_d_m?.toFixed(0), " m")
+    updateValue(this.modeValueTarget, r.mode)
+    updateValue(this.vaporizationValueTarget, r.vaporization_radius_km?.toFixed(1), " km")
+    updateValue(this.thermalValueTarget, r.thermal_radiation_radius_km?.toFixed(1), " km")
+    updateValue(this.blastValueTarget, r.severe_blast_radius_km?.toFixed(1), " km")
+    updateValue(this.tsunamiValueTarget, r.tsunami_100km_m?.toFixed(1), " m @ 100km")
+  }
+
+  // ============================================================================
+  // ANIMATION LOOP
+  // ============================================================================
+
+  /**
+   * Main animation loop (called every frame)
+   *
+   * RESPONSIBILITIES:
+   * 1. Update meteor position along trajectory
+   * 2. Update timeline UI
+   * 3. Trigger impact when progress reaches 100%
+   * 4. Update orbit controls (when not following)
+   * 5. Render scene
+   *
+   * TIMING:
+   * - Total duration: 30 seconds (simulationDuration)
+   * - Impact occurs at: 25 seconds (impactTime)
+   * - Post-impact: 5 seconds for effects
+   * - Frame rate: ~60 FPS (browser's requestAnimationFrame)
+   */
+  animate() {
+    const delta = this.clock.getDelta()
+    const time = this.clock.elapsedTime
+
+    // =========================================================================
+    // HELIOCENTRIC VIEW ANIMATIONS
+    // =========================================================================
+    if (this.currentView === this.VIEW_MODES.HELIOCENTRIC) {
+      // Default orbital animation (slow Earth movement)
+      if (this.defaultOrbitalAnimation && !this.orbitalTimeline?.playing) {
+        if (this.orbitalEarth) {
+          const orbitRadius = this.AU / this.SCENE_SCALE
+          this.earthOrbitalAngle = (this.earthOrbitalAngle || 0) + delta * 0.02  // Very slow
+          this.orbitalEarth.position.set(
+            Math.cos(this.earthOrbitalAngle) * orbitRadius,
+            0,
+            -Math.sin(this.earthOrbitalAngle) * orbitRadius
+          )
+
+          // Earth also rotates on its axis
+          this.orbitalEarth.rotation.y += delta * 2
+        }
+      }
+
+      // Handle timeline playback
+      if (this.orbitalTimeline && this.orbitalTimeline.playing) {
+        // Advance time based on speed
+        const msPerDay = 24 * 60 * 60 * 1000
+        const deltaMs = delta * 1000 * this.orbitalTimeline.speed * msPerDay  // Convert animation delta to days
+        const newTime = new Date(this.orbitalTimeline.currentTime.getTime() + deltaMs)
+
+        // Check bounds
+        if (newTime <= this.orbitalTimeline.endTime && newTime >= this.orbitalTimeline.startTime) {
+          this.orbitalTimeline.currentTime = newTime
+
+          // Update orbital positions
+          this.positionEarthAtTime(newTime)
+          this.positionNeoAtTime(newTime)
+
+          // Update velocity vectors
+          if (this.velocityVectors && this.velocityVectors.length > 0) {
+            // Update Earth velocity vector position
+            if (this.velocityVectors[0] && this.orbitalEarth) {
+              this.velocityVectors[0].position.copy(this.orbitalEarth.position)
+              const earthVel = this.calculateEarthVelocity()
+              this.velocityVectors[0].setDirection(earthVel)
+            }
+
+            // Update NEO velocity vector position
+            if (this.velocityVectors[1] && this.neoMesh) {
+              this.velocityVectors[1].position.copy(this.neoMesh.position)
+              const neoVel = this.calculateNeoVelocity()
+              this.velocityVectors[1].setDirection(neoVel)
+            }
+          }
+
+          // Update slider position
+          const totalMs = this.orbitalTimeline.endTime - this.orbitalTimeline.startTime
+          const currentMs = newTime - this.orbitalTimeline.startTime
+          const progress = currentMs / totalMs
+          const slider = document.getElementById('timeline-slider')
+          if (slider) {
+            slider.value = progress * 60
+          }
+
+          // Update display
+          this.updateTimelineDisplay()
+        } else {
+          // Stop at bounds
+          this.toggleOrbitalPlayback()
+        }
+      }
+
+      // Pulse encounter marker
+      if (this.encounterMarker && this.encounterMarker.userData.pulse) {
+        const scale = 1 + Math.sin(time * 3) * 0.2
+        this.encounterMarker.scale.set(scale, scale, scale)
+      }
+
+      // Rotate Sun for visual effect
+      if (this.sun) {
+        this.sun.rotation.y += delta * 0.1
+      }
+
+      // Rotate Sun glow
+      if (this.sunGlow) {
+        this.sunGlow.rotation.y -= delta * 0.05
+      }
+    }
+
+    // =========================================================================
+    // GEOCENTRIC VIEW ANIMATIONS (existing meteor animation)
+    // =========================================================================
+    if (this.currentView === this.VIEW_MODES.GEOCENTRIC && this.playing) {
+      const elapsed = Date.now() - this.simulationStartTime
+      const progress = Math.min(elapsed / this.impactTime, 1)
+
+      // Update meteor position
+      this.updateMeteorPosition(progress)
+
+      // Update timeline UI
+      this.updateTimeline(progress)
+
+      // Trigger impact at 100% progress
+      if (progress >= 1 && !this.impactOccurred) {
+        this.triggerImpact()
+      }
+
+      // Stop after full duration
+      if (elapsed >= this.simulationDuration) {
+        this.playing = false
+        if (this.playBtnTarget) {
+          this.playBtnTarget.textContent = "▶"
+        }
+        console.log("⏹️  Playback complete")
+      }
+    }
+
+    // Update controls
+    if (this.controls) {
+      // Enable auto-rotation in heliocentric view
+      if (this.currentView === this.VIEW_MODES.HELIOCENTRIC && !this.orbitalTimeline?.playing) {
+        this.controls.autoRotate = true
+      }
+
+      // Disable in geocentric view or when following meteor
+      if (this.currentView === this.VIEW_MODES.GEOCENTRIC || this.cameraFollowing) {
+        this.controls.autoRotate = false
+      }
+
+      if (!this.cameraFollowing && this.controls.enabled) {
+        this.controls.update()
+      }
+    }
+
+    // Rotate Earth slowly for realism in geocentric view
+    if (this.earthGroup && this.currentView === this.VIEW_MODES.GEOCENTRIC) {
+      this.earthGroup.rotation.y += 0.0000  // Set to small value (e.g., 0.0001) to enable
+    }
+
+    // Render scene
+    this.renderer.render(this.scene, this.camera)
+  }
+
+  /**
+   * Update timeline progress UI
+   */
+  updateTimeline(progress) {
+    if (this.timelineProgressTarget) {
+      this.timelineProgressTarget.style.width = `${progress * 100}%`
+    }
+    if (this.timelineHandleTarget) {
+      this.timelineHandleTarget.style.left = `${progress * 100}%`
+    }
+    if (this.timeStartTarget) {
+      const remaining = (1 - progress) * 25
+      this.timeStartTarget.textContent = `T-${remaining.toFixed(1)}s`
+    }
+    if (this.timeEndTarget) {
+      this.timeEndTarget.textContent = progress >= 1 ? "IMPACT!" : "Impact"
+    }
+  }
+
+  /**
+   * Clear all simulation objects from scene
+   * Called before starting new simulation
+   */
+  clearSimulation() {
+    console.log("🧹 Clearing previous simulation...")
+
+    // Remove meteor
+    if (this.meteorObject) {
+      this.scene.remove(this.meteorObject)
+      this.meteorObject.traverse(child => {
+        if (child.geometry) child.geometry.dispose()
+        if (child.material) child.material.dispose()
+      })
+      this.meteorObject = null
+    }
+
+    // Remove trail
+    if (this.trailLine) {
+      this.scene.remove(this.trailLine)
+      this.trailLine.geometry.dispose()
+      this.trailLine.material.dispose()
+      this.trailLine = null
+    }
+
+    // Remove damage rings
+    this.damageRings.forEach(ring => {
+      this.scene.remove(ring)
+      ring.traverse(child => {
+        if (child.geometry) child.geometry.dispose()
+        if (child.material) child.material.dispose()
+      })
+    })
+    this.damageRings = []
+
+    // Remove info overlays
+    this.infoOverlays.forEach(overlay => {
+      this.scene.remove(overlay)
+      if (overlay.material) overlay.material.dispose()
+    })
+    this.infoOverlays = []
+
+    // Reset camera
+    this.cameraFollowing = false
+    this.controls.enabled = true
+
+    // Reset timeline
+    if (this.timelineTarget) {
+      this.timelineTarget.style.display = "none"
+    }
+
+    console.log("  ✅ Scene cleared")
+  }
+
+  // ============================================================================
+  // UTILITY FUNCTIONS
+  // ============================================================================
+
+  /**
+   * Convert latitude/longitude to 3D Cartesian coordinates
+   *
+   * COORDINATE SYSTEM:
+   * - Latitude: -90° (South Pole) to +90° (North Pole)
+   * - Longitude: -180° (West) to +180° (East)
+   * - Radius: Distance from Earth center (meters)
+   *
+   * SPHERICAL TO CARTESIAN CONVERSION:
+   * φ (phi) = 90° - latitude  (polar angle from North Pole)
+   * θ (theta) = longitude + 180°  (azimuthal angle)
+   *
+   * x = radius * sin(φ) * cos(θ)
+   * y = radius * cos(φ)
+   * z = -radius * sin(φ) * sin(θ)  (negative for correct orientation)
+   *
+   * This matches the convention used in Physics::Utils for great-circle calculations
+   *
+   * @param {number} lat - Latitude in degrees
+   * @param {number} lng - Longitude in degrees
+   * @param {number} radius - Distance from Earth center in meters
+   * @returns {THREE.Vector3} 3D position
+   */
+  latLngToVector3(lat, lng, radius) {
+    const phi = THREE.MathUtils.degToRad(90 - lat)  // Polar angle
+    const theta = THREE.MathUtils.degToRad(lng + 180)  // Azimuthal angle
+
+    const x =  radius * Math.sin(phi) * Math.cos(theta)
+    const y =  radius * Math.cos(phi)
+    const z = -radius * Math.sin(phi) * Math.sin(theta)  // Flipped for correct orientation
+
+    return new THREE.Vector3(x, y, z)
+  }
+
+  /**
+   * Ease-in-out cubic function for smooth animations
+   * Creates acceleration at start and deceleration at end
+   *
+   * @param {number} t - Progress (0 to 1)
+   * @returns {number} Eased progress (0 to 1)
+   */
+  easeInOutCubic(t) {
+    return t < 0.5 ? 4 * t * t * t : 1 - Math.pow(-2 * t + 2, 3) / 2
+  }
+
+  /**
+   * Get CSS class for threat level
+   * Maps Physics::Engine threat levels to UI colors
+   */
+  getThreatClass(level) {
+    const map = {
+      'EXTINCTION': 'critical',
+      'CATASTROPHIC': 'critical',
+      'CONTINENTAL': 'severe',
+      'REGIONAL': 'major',
+      'LOCAL': 'moderate',
+      'MINOR': 'minor'
+    }
+    return map[level] || 'safe'
+  }
+
+  /**
+   * Detect which country is at given mouse position
+   * Uses raycasting to intersect mouse ray with land meshes
+   */
+  detectCountryAtPoint(x, y) {
+    if (!this.landGroup) return null
+
+    // Convert mouse position to normalized device coordinates (-1 to +1)
+    const mouse = new THREE.Vector2(
+      (x / this.renderer.domElement.clientWidth) * 2 - 1,
+      -(y / this.renderer.domElement.clientHeight) * 2 + 1
+    )
+
+    const raycaster = new THREE.Raycaster()
+    raycaster.setFromCamera(mouse, this.camera)
+
+    const intersects = raycaster.intersectObjects(this.landGroup.children, false)
+    if (intersects.length > 0) {
+      return intersects[0].object.userData.country
+    }
+    return null
+  }
+
+  // ============================================================================
+  // EVENT HANDLERS
+  // ============================================================================
+
+  /**
+   * Setup all DOM event listeners
+   * - Window resize
+   * - Play/pause button
+   * - Mouse hover for country detection
+   * - Click to set impact location
+   */
+  setupEventListeners() {
+    // Window resize - update camera and renderer
+    window.addEventListener('resize', () => {
+      const container = this.cesiumContainerTarget
+      this.camera.aspect = container.clientWidth / container.clientHeight
+      this.camera.updateProjectionMatrix()
+      this.renderer.setSize(container.clientWidth, container.clientHeight)
+    })
+
+    // Play/pause button
+    if (this.playBtnTarget) {
+      this.playBtnTarget.addEventListener('click', () => {
+        if (this.trajectory.length > 0) {
+          this.playing = !this.playing
+          this.playBtnTarget.textContent = this.playing ? "⏸" : "▶"
+          if (this.playing && !this.simulationStartTime) {
+            this.simulationStartTime = Date.now()
+          }
+        }
+      })
+    }
+
+    // Mouse move for country detection
+    this.renderer.domElement.addEventListener('mousemove', (event) => {
+      const rect = this.renderer.domElement.getBoundingClientRect()
+      const x = event.clientX - rect.left
+      const y = event.clientY - rect.top
+
+      const country = this.detectCountryAtPoint(x, y)
+
+      if (country && country !== this.hoveredCountry) {
+        this.hoveredCountry = country
+        this.tooltip.textContent = country
+        this.tooltip.style.display = 'block'
+        this.tooltip.style.left = `${event.clientX - rect.left + 10}px`
+        this.tooltip.style.top = `${event.clientY - rect.top - 30}px`
+        console.log("🗺️  Hovering over:", country)
+      } else if (!country && this.hoveredCountry) {
+        this.hoveredCountry = null
+        this.tooltip.style.display = 'none'
+      }
+    })
+
+    // Hide tooltip when mouse leaves
+    this.renderer.domElement.addEventListener('mouseleave', () => {
+      this.hoveredCountry = null
+      this.tooltip.style.display = 'none'
+    })
+
+    // Click to set impact location
+    this.renderer.domElement.addEventListener('click', (event) => {
+      if (!this.playing) {
+        const rect = this.renderer.domElement.getBoundingClientRect()
+        const x = (event.clientX - rect.left) / rect.width * 2 - 1
+        const y = -(event.clientY - rect.top) / rect.height * 2 + 1
+
+        const raycaster = new THREE.Raycaster()
+        raycaster.setFromCamera(new THREE.Vector2(x, y), this.camera)
+
+        const intersects = raycaster.intersectObject(this.oceanMesh)
+        if (intersects.length > 0) {
+          const point = intersects[0].point
+
+          // Convert 3D point back to lat/lng
+          const lat = Math.asin(point.y / this.EARTH_R) * 180 / Math.PI
+          const lng = Math.atan2(-point.z, point.x) * 180 / Math.PI
+
+          if (this.latInputTarget) this.latInputTarget.value = lat.toFixed(4)
+          if (this.lngInputTarget) this.lngInputTarget.value = lng.toFixed(4)
+
+          console.log("📍 Impact location set:", lat.toFixed(4), "°,", lng.toFixed(4), "°")
+        }
+      }
+    })
+
+    console.log("🎮 Event listeners configured")
+  }
+
+  // ============================================================================
+  // LIFECYCLE: CLEANUP
+  // ============================================================================
+
+  /**
+   * Stimulus disconnect() - Called when controller is removed from DOM
+   * Clean up Three.js resources to prevent memory leaks
+   */
+  disconnect() {
+    console.log("👋 Cesium Impact Controller: Disconnecting...")
+
+    this.renderer.setAnimationLoop(null)
+    this.renderer.dispose()
+    this.clearSimulation()
+
+    if (this.tooltip) {
+      this.tooltip.remove()
+    }
+
+    console.log("✅ Cleanup complete")
+  }
+}

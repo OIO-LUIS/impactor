@@ -1,0 +1,49 @@
+<%= turbo_frame_tag "neo_results" do %>
+  <div class="neo-list">
+    <div class="feed-header">
+      <span class="feed-date-range">
+        <%= Date.parse(@start_date).strftime("%b %d, %Y") %> - <%= Date.parse(@end_date).strftime("%b %d, %Y") %>
+      </span>
+      <span class="feed-count"><%= @neos.length %> close approaches</span>
+    </div>
+
+    <% if @neos.any? %>
+      <% @neos.each do |neo| %>
+        <div class="neo-item"
+             data-controller="neo-selector"
+             data-neo-id="<%= neo[:neo_reference_id] %>"
+             data-action="click->neo-selector#select">
+          <div class="neo-header">
+            <div class="neo-name">
+              <%= neo[:name] %>
+              <% if neo[:potentially_hazardous] %>
+                <span class="neo-badge hazardous" title="Potentially Hazardous">⚠️ PHA</span>
+              <% end %>
+            </div>
+            <div class="neo-magnitude">H: <%= neo[:absolute_magnitude]&.round(2) %></div>
+          </div>
+          <div class="neo-details">
+            <div class="neo-detail">
+              <span class="label">Diameter:</span>
+              <span class="value"><%= neo[:diameter_m].round(0) %> m</span>
+            </div>
+            <div class="neo-detail">
+              <span class="label">Velocity:</span>
+              <span class="value"><%= neo[:velocity_kms] %> km/s</span>
+            </div>
+            <% if neo[:miss_distance_km] %>
+              <div class="neo-detail">
+                <span class="label">Miss Dist:</span>
+                <span class="value"><%= number_to_human(neo[:miss_distance_km] * 1000, units: { thousand: 'K', million: 'M' }, precision: 1) %> km</span>
+              </div>
+            <% end %>
+          </div>
+        </div>
+      <% end %>
+    <% else %>
+      <div class="neo-empty">
+        <p>No close approaches in this date range.</p>
+      </div>
+    <% end %>
+  </div>
+<% end %>

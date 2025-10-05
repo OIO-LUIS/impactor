@@ -1,0 +1,61 @@
+<%= turbo_frame_tag "neo_results" do %>
+  <div class="neo-list">
+    <% if @neos.any? %>
+      <% @neos.each do |neo| %>
+        <div class="neo-item"
+             data-controller="neo-selector"
+             data-neo-id="<%= neo[:neo_reference_id] %>"
+             data-action="click->neo-selector#select">
+          <div class="neo-header">
+            <div class="neo-name">
+              <%= neo[:name] %>
+              <% if neo[:potentially_hazardous] %>
+                <span class="neo-badge hazardous" title="Potentially Hazardous">⚠️ PHA</span>
+              <% end %>
+            </div>
+            <div class="neo-magnitude">H: <%= neo[:absolute_magnitude]&.round(2) %></div>
+          </div>
+          <div class="neo-details">
+            <div class="neo-detail">
+              <span class="label">Diameter:</span>
+              <span class="value"><%= neo[:diameter_m].round(0) %> m</span>
+            </div>
+            <div class="neo-detail">
+              <span class="label">Velocity:</span>
+              <span class="value"><%= neo[:velocity_kms] %> km/s</span>
+            </div>
+            <% if neo[:close_approach_date] %>
+              <div class="neo-detail">
+                <span class="label">Approach:</span>
+                <span class="value"><%= Date.parse(neo[:close_approach_date]).strftime("%b %d, %Y") rescue neo[:close_approach_date] %></span>
+              </div>
+            <% end %>
+          </div>
+        </div>
+      <% end %>
+
+      <!-- Pagination -->
+      <div class="neo-pagination">
+        <% if @page > 0 %>
+          <%= link_to "← Previous", neos_browse_path(page: @page - 1),
+                      data: { turbo_frame: "neo_results" },
+                      class: "pagination-btn" %>
+        <% end %>
+
+        <span class="pagination-info">
+          Page <%= @page + 1 %> of <%= @total_pages %> (<%= @total_elements %> total)
+        </span>
+
+        <% if @page < @total_pages - 1 %>
+          <%= link_to "Next →", neos_browse_path(page: @page + 1),
+                      data: { turbo_frame: "neo_results" },
+                      class: "pagination-btn" %>
+        <% end %>
+      </div>
+    <% else %>
+      <div class="neo-empty">
+        <p>No NEOs found. Try adjusting your search parameters.</p>
+      </div>
+    <% end %>
+  </div>
+<% end %>

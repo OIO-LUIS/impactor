@@ -1,0 +1,9 @@
+<%= turbo_frame_tag "neo_results" do %>
+  <div class="neo-error">
+    <div class="error-icon">⚠️</div>
+    <div class="error-message">
+      <strong>Error loading NEO data</strong>
+      <p><%= @error || "An unexpected error occurred" %></p>
+    </div>
+  </div>
+<% end %>

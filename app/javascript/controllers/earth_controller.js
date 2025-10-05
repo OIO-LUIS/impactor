@@ -71,7 +71,7 @@ export default class extends Controller {
     // Satellite group (easy cleanup)
     this.satellitesGroup = new THREE.Group()
     this.scene.add(this.satellitesGroup)
-    this.addSatellites(2, this.satelliteUrlValue)
+    this.addSatellites(4, this.satelliteUrlValue)
 
     // Resize
     this.onResizeBound = this.onResize.bind(this)
@@ -164,8 +164,8 @@ export default class extends Controller {
     this.satellitesGroup.add(sprite)
   }
 
-    // ──────────────────────────────────────────────────────────────────────────
-    // Meteors: sphere head + glow trail
+  // ──────────────────────────────────────────────────────────────────────────
+  // Meteors: sphere head + glow trail
   spawnMeteor() {
     const headRadius = THREE.MathUtils.randFloat(0.015, 0.028)
     const headGeom = new THREE.SphereGeometry(headRadius, 16, 16)
@@ -179,59 +179,14 @@ export default class extends Controller {
     })
     const head = new THREE.Mesh(headGeom, headMat)
 
-    // “Screen” limits in your scene (adjust if you want)
-    const maxX = 5
-    const maxY = 2.2
+    // Lower band across the screen
     const z = THREE.MathUtils.randFloat(-0.25, 0.25)
+    const startY = THREE.MathUtils.randFloat(-0.2, 0.6)
+    const endY = startY - THREE.MathUtils.randFloat(0.9, 1.7)
 
-    // Various steering patterns
-    const pattern = THREE.MathUtils.randInt(0, 5)
-    let start, end
+    const start = new THREE.Vector3(-5, startY, z)
+    const end   = new THREE.Vector3( 5, endY,   z)
 
-    switch (pattern) {
-      // Left -> Right (slight drop)
-      case 0: {
-        const y = THREE.MathUtils.randFloat(-0.8, 1.2)
-        start = new THREE.Vector3(-maxX, y, z)
-        end   = new THREE.Vector3( maxX, y - THREE.MathUtils.randFloat(0.2, 0.9), z)
-        break
-      }
-      // Right -> Left (slight drop)
-      case 1: {
-        const y = THREE.MathUtils.randFloat(-0.8, 1.2)
-        start = new THREE.Vector3( maxX, y, z)
-        end   = new THREE.Vector3(-maxX, y - THREE.MathUtils.randFloat(0.2, 0.9), z)
-        break
-      }
-      // Top left -> Bottom right (diagonal)
-      case 2: {
-        start = new THREE.Vector3(THREE.MathUtils.randFloat(-maxX, -maxX * 0.6),  maxY, z)
-        end   = new THREE.Vector3(THREE.MathUtils.randFloat( maxX * 0.6,  maxX), -maxY, z)
-        break
-      }
-      // Down right -> Up left (diagonal)
-      case 3: {
-        start = new THREE.Vector3(THREE.MathUtils.randFloat( maxX * 0.6,  maxX), -maxY, z)
-        end   = new THREE.Vector3(THREE.MathUtils.randFloat(-maxX, -maxX * 0.6),  maxY, z)
-        break
-      }
-      // Up -> Down (almost vertical with slight deviation)
-      case 4: {
-        const x = THREE.MathUtils.randFloat(-maxX * 0.4, maxX * 0.4)
-        start = new THREE.Vector3(x + THREE.MathUtils.randFloat(-0.3, 0.3),  maxY, z)
-        end   = new THREE.Vector3(x - THREE.MathUtils.randFloat(-0.3, 0.3), -maxY, z)
-        break
-      }
-      // Down -> Up (almost vertical with slight deviation)
-      default: {
-        const x = THREE.MathUtils.randFloat(-maxX * 0.4, maxX * 0.4)
-        start = new THREE.Vector3(x + THREE.MathUtils.randFloat(-0.3, 0.3), -maxY, z)
-        end   = new THREE.Vector3(x - THREE.MathUtils.randFloat(-0.3, 0.3),  maxY, z)
-        break
-      }
-    }
-
-    // Lifetime and start-up
     const lifetime = THREE.MathUtils.randFloat(1.8, 2.8)
     const t0 = this.clock.getElapsedTime()
 

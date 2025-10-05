@@ -10,4 +10,14 @@ Rails.application.routes.draw do
     root "home#index"
 
   end
+
+    # NEO Browser API routes
+  get  "/neos/browse", to: "neos#browse"
+  get  "/neos/feed", to: "neos#feed"
+  get  "/neos/:id", to: "neos#show"
+
+  post "/simulate", to: "scenarios#simulate"
+  get "simulation", to: "home#impact_cerium", as: "start_simulation"
+
+  
 end

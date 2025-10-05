@@ -1,0 +1,81 @@
+<div
+  data-controller="earth"
+  data-earth-target="mount"
+  data-earth-earth-url-value="<%= asset_path('earth_day.jpg') %>"
+  data-earth-satellite-url-value="<%= asset_path('satellite.png') %>"
+  class="bg-canvas">
+</div>
+
+<div class="container content" id="main">
+  <header class="header" role="banner" aria-label="Site header">
+    <div class="header__inner">
+      <div class="brand">🌍 Meteor Madness</div>
+      <span class="badge" aria-label="Challenge code">NASA Space Apps 2025</span>
+    </div>
+  </header>
+
+  <section class="hero" aria-labelledby="hero-title">
+    <h1 id="hero-title" class="hero__title">Explore impacts and defend Earth</h1>
+    <p class="hero__subtitle">
+      Simulate scenarios, estimate consequences, and test mitigation strategies using real NASA & USGS data.
+    </p>
+  </section>
+
+  <section class="grid" aria-label="Main actions">
+    <!-- Impact Simulation (LIVE) -->
+    <%= link_to start_simulation_path, class: "card card--sim", aria: { label: "Open Impact Simulation" } do %>
+      <div class="card__head">
+        <span class="card__pill">SIM</span>
+        <span class="card__tag">Live</span>
+      </div>
+      <h2 class="card__title">Impact Simulation</h2>
+      <p class="card__desc">
+        Set size, velocity, and impact point. Get energy, crater size, and shockwave rings.
+      </p>
+      <span class="card__cta">Start →</span>
+    <% end %>
+
+    <!-- Orbit Simulation (SOON) -->
+    <%= link_to "#", class: "card card--sim card--soon", aria: { label: "Open Orbit Simulation (coming soon)" } do %>
+      <div class="card__head">
+        <span class="card__pill">SIM</span>
+        <span class="card__tag">Soon</span>
+      </div>
+      <h2 class="card__title">Orbit Simulation</h2>
+      <p class="card__desc">
+        Visualize Impactor-2025’s orbital path and close approaches using SBDB/NeoWs elements.
+      </p>
+      <span class="card__cta">Coming soon</span>
+    <% end %>
+
+    <!-- Mitigation (Gaming) -->
+    <%= link_to "#", class: "card card--mit card--soon", aria: { label: "Open Mitigation/Gaming (coming soon)" } do %>
+      <div class="card__head">
+        <span class="card__pill">MIT</span>
+        <span class="card__tag">Soon</span>
+      </div>
+      <h2 class="card__title">Mitigation (Gaming)</h2>
+      <p class="card__desc">
+        Apply along-track Δv with lead time and see if you can deflect Impactor-2025.
+      </p>
+      <span class="card__cta">Coming soon</span>
+    <% end %>
+
+    <!-- Learn & Explore -->
+    <%= link_to "#", class: "card card--edu card--soon", aria: { label: "Open Learn & Explore (coming soon)" } do %>
+      <div class="card__head">
+        <span class="card__pill">LEARN</span>
+        <span class="card__tag">Soon</span>
+      </div>
+      <h2 class="card__title">Learn & Explore</h2>
+      <p class="card__desc">
+        Key concepts: orbital elements, impact energy, and the NASA/USGS datasets behind the tool.
+      </p>
+      <span class="card__cta">Coming soon</span>
+    <% end %>
+  </section>
+
+  <footer class="footer" role="contentinfo">
+    Astro michis
+  </footer>
+</div>
