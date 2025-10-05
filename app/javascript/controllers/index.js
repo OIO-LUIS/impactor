@@ -2,25 +2,25 @@
 // Run that command whenever you add a new controller or create them with
 // ./bin/rails generate stimulus controllerName
 
-import { application } from "./application"
+import { application } from "controllers/application"
 
-import CesiumController from "./cesium_controller"
+import CesiumController from "controllers/cesium_controller"
 application.register("cesium", CesiumController)
 
-import CesiumImpactController from "./cesium_impact_controller"
+import CesiumImpactController from "controllers/cesium_impact_controller"
 application.register("cesium-impact", CesiumImpactController)
 
-import EarthController from "./earth_controller"
+import EarthController from "controllers/earth_controller"
 application.register("earth", EarthController)
 
-import HelloController from "./hello_controller"
+import HelloController from "controllers/hello_controller"
 application.register("hello", HelloController)
 
-import ImpactController from "./impact_controller"
+import ImpactController from "controllers/impact_controller"
 application.register("impact", ImpactController)
 
-import NeoBrowserController from "./neo_browser_controller"
+import NeoBrowserController from "controllers/neo_browser_controller"
 application.register("neo-browser", NeoBrowserController)
 
-import NeoSelectorController from "./neo_selector_controller"
+import NeoSelectorController from "controllers/neo_selector_controller"
 application.register("neo-selector", NeoSelectorController)
