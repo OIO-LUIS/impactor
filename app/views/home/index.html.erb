@@ -24,15 +24,17 @@
         <span class="home-hero__title-line home-hero__title-line--gradient"><%= t('home.hero.title_line2') %></span>
       </h1>
 
-      <!-- Subtitle -->
-      <p class="home-hero__subtitle"><%= t('home.hero.subtitle_html').html_safe %></p>
-
       <!-- Main CTA -->
       <%= link_to start_simulation_path, class: "home-cta", 'aria-label': t('home.cta.aria') do %>
         <span class="home-cta__icon">☄️</span>
         <span class="home-cta__text"><%= t('home.cta.text') %></span>
         <span class="home-cta__arrow">→</span>
       <% end %>
+
+      <!-- Subtitle -->
+      <p class="home-hero__subtitle"><%= t('home.hero.subtitle_html').html_safe %></p>
+
+      
 
       <!-- Secondary Info -->
       <p class="home-hero__meta"><%= t('home.hero.meta') %></p>
