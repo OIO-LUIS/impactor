@@ -4,7 +4,7 @@ import { feature, mesh } from "topojson-client"
 import { post } from "@rails/request.js"
 
 export default class extends Controller {
-  static targets = ["globe", "form", "metrics", "tooltip", "timeline", "threatLevel", "simCount"]
+  static targets = ["globe", "form", "metrics", "tooltip", "timeline", "threatLevel"]
   static values = { countriesUrl: String }
 
   connect() {
@@ -307,9 +307,6 @@ export default class extends Controller {
         throw new Error(data.error || "Simulation failed")
       }
       
-      // Update simulation counter
-      this.simulations++
-      this.simCountTarget.textContent = `${this.simulations} Simulations`
       
       // Process and visualize results
       this.processSimulationResults(data, lat, lng)
