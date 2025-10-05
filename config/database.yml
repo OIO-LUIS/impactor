@@ -79,6 +79,8 @@ test:
 #
 production:
   <<: *default
-  database: impactor_2025_production
-  username: impactor_2025
-  password: <%= ENV["IMPACTOR_2025_DATABASE_PASSWORD"] %>
+  database: <%= Rails.application.credentials.dig(:database, :production, :database) || ENV["DATABASE_NAME"] %>
+  username: <%= Rails.application.credentials.dig(:database, :production, :username) || ENV["DATABASE_USERNAME"] %>
+  password: <%= Rails.application.credentials.dig(:database, :production, :password) || ENV["DATABASE_PASSWORD"] %>
+  host: <%= Rails.application.credentials.dig(:database, :production, :host) || ENV["DATABASE_HOST"] %>
+  port: <%= Rails.application.credentials.dig(:database, :production, :port) || ENV["DATABASE_PORT"] %>
