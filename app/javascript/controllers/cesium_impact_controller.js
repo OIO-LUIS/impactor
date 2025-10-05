@@ -77,7 +77,7 @@ export default class extends Controller {
     "cesiumContainer",
 
     // Form controls
-    "form","simulateBtn","simCount","threatLevel",
+    "form","simulateBtn","threatLevel",
 
     // Input parameters (these map directly to Physics::Engine params)
     "diameterInput",     // diameter_m
@@ -241,7 +241,6 @@ export default class extends Controller {
   resetState() {
     const cfg = this.constructor.CONFIG
 
-    this.simCount = 0
     this.playing = false
     this.simulationTime = 0
     this.simulationDuration = cfg.SIMULATION_DURATION_MS
@@ -1238,7 +1237,6 @@ export default class extends Controller {
 
     // Update UI
     this.updateMetrics()
-    this._incrementSimulationCounter()
 
     console.log("🔄 ═══════════════════════════════════════════════════════")
     console.log("")
@@ -1345,12 +1343,6 @@ export default class extends Controller {
    * Increment and update simulation counter
    * @private
    */
-  _incrementSimulationCounter() {
-    this.simCount++
-    if (this.simCountTarget) {
-      this.simCountTarget.textContent = `${this.simCount} Simulations`
-    }
-  }
 
   // ============================================================================
   // VISUALIZATION: 3D RENDERING
