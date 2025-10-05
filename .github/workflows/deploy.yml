@@ -44,16 +44,9 @@ jobs:
         ruby-version: 3.3.0
         bundler-cache: true
 
-    - name: Set up Node.js
-      uses: actions/setup-node@v4
-      with:
-        node-version: '18'
-        cache: 'yarn'
-
-    - name: Install dependencies
+    - name: Install Ruby dependencies
       run: |
         bundle install --jobs 4 --retry 3
-        yarn install --frozen-lockfile
 
     - name: Set up test database
       env:
@@ -67,15 +60,12 @@ jobs:
         RAILS_ENV: test
         DATABASE_URL: postgres://postgres:postgres@localhost:5432/impactor_test
       run: |
-        bundle exec rspec
-        # Add other test commands if needed
-        # bundle exec cucumber
-        # yarn test
+        bin/rails test
+        bin/rails test:system
 
     - name: Run security audit
       run: |
         bundle exec bundler-audit --update
-        # yarn audit --audit-level moderate
 
   deploy:
     name: Deploy to Cloud Run
