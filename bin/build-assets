@@ -1,0 +1,36 @@
+#!/usr/bin/env ruby
+
+# Build script for asset compilation
+# This script matches what happens in the Dockerfile for consistency
+
+puts "🔧 Building assets for production..."
+
+# Check if d3 is already pinned
+importmap_content = File.read("config/importmap.rb")
+unless importmap_content.include?('pin "d3"')
+  puts "📦 Pinning d3 library..."
+  system("bin/importmap pin d3") or raise "Failed to pin d3"
+else
+  puts "✅ d3 already pinned in importmap"
+end
+
+# Update stimulus manifest
+puts "⚡ Updating stimulus manifest..."
+result = system("bin/rails stimulus:manifest:update")
+if result
+  puts "✅ Stimulus manifest updated"
+else
+  puts "⚠️  Stimulus manifest update failed (this may be normal if no stimulus controllers exist)"
+end
+
+# Clean and precompile assets
+puts "🧹 Cleaning existing assets..."
+ENV["RAILS_ENV"] = "production"
+ENV["SECRET_KEY_BASE"] = "dummy-secret-key-base-for-asset-precompilation-only-not-for-production-use"
+ENV["DATABASE_URL"] = "postgresql://dummy:dummy@localhost:5432/dummy"
+system("bin/rails assets:clobber") or raise "Failed to clean assets"
+
+puts "🏗️  Precompiling assets..."
+system("bin/rails assets:precompile") or raise "Failed to precompile assets"
+
+puts "✅ Asset build completed successfully!"
