@@ -45,7 +45,7 @@ RUN if ! grep -q 'pin "d3"' config/importmap.rb; then \
 # (local assets are automatically pinned via pin_all_from in importmap.rb)
 
 # Update stimulus manifest
-RUN ./bin/rails stimulus:manifest:update || true
+# RUN ./bin/rails stimulus:manifest:update || true
 
 # Precompiling assets for production without database or credentials
 # Skip loading the environment for asset precompilation
