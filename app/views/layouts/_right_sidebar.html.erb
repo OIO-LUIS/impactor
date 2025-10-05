@@ -1,0 +1,34 @@
+<div
+  class="settings-menu settings-menu--br"
+  data-controller="sidebar"
+  data-sidebar-mode-value="settings"
+  data-sidebar-open-value="false"
+  aria-live="polite">
+
+  <button
+    type="button"
+    class="settings-btn"
+    aria-label="Open settings"
+    aria-expanded="false"
+    data-sidebar-target="settingsToggle"
+    data-action="click->sidebar#toggleSettings">
+    <span class="material-icons-outlined settings-icon" aria-hidden="true">settings</span>
+  </button>
+
+  <div
+    class="settings-dropdown settings-dropdown--up"
+    aria-hidden="true"
+    role="menu"
+    data-sidebar-target="settingsMenu">
+
+    <a href="#" role="menuitem" class="settings-item">
+      <span class="material-icons-outlined" aria-hidden="true">videogame_asset</span>
+      <span class="settings-label"><%= t('settings.links.game') %></span>
+    </a>
+
+    <a href="#" role="menuitem" class="settings-item">
+      <span class="material-icons-outlined" aria-hidden="true">info</span>
+      <span class="settings-label"><%= t('settings.links.info') %></span>
+    </a>
+  </div>
+</div>
