@@ -80,6 +80,13 @@ export default class extends Controller {
     // Rendering
     "cesiumContainer",
 
+    // Loading screen
+    "loadingOverlay",
+    "loadingTitle",
+    "loadingSubtitle",
+    "progressBar",
+    "loadingTip",
+
     // Form controls
     "form","simulateBtn","threatLevel",
 
@@ -209,6 +216,10 @@ export default class extends Controller {
   connect() {
     console.log("🚀 Cesium Impact Controller: Initializing...")
 
+    // Show loading screen during initialization
+    this.showLoadingScreen('initializing', 'Initializing Solar System', 'Loading planetary textures and orbital data...')
+    this.updateLoadingProgress(10)
+
     // Get configuration
     const cfg = this.constructor.CONFIG
 
@@ -234,28 +245,64 @@ export default class extends Controller {
     this.currentView = this.viewState.getViewMode()  // Sync with ViewState
 
     this.resetState()
+    this.updateLoadingProgress(20)
+
     this.setupRenderer()
+    this.updateLoadingProgress(30)
+
     this.setupScene()
+    this.updateLoadingProgress(40)
+
     this.setupCamera()
+    this.updateLoadingProgress(50)
+
     this.setupLighting()
+    this.updateLoadingProgress(60)
 
     // ============================================================================
     // Initialize modular visualization components
     // ============================================================================
     this.initializeModules()
+    this.updateLoadingProgress(70)
 
     // Setup appropriate view
     if (this.currentView === this.VIEW_MODES.HELIOCENTRIC) {
-      this.setupHeliocentricView()
+      // Run setupHeliocentricView asynchronously
+      this.setupHeliocentricView().then(() => {
+        this.updateLoadingProgress(90)
+
+        // Start animation loop
+        this.animate = this.animate.bind(this)
+        this.renderer.setAnimationLoop(this.animate)
+        this.setupEventListeners()
+
+        this.updateLoadingProgress(100)
+
+        // Hide loading screen with a slight delay for smooth transition
+        setTimeout(() => {
+          this.hideLoadingScreen()
+          console.log("✅ Cesium Impact Controller: Ready")
+        }, 500)
+      }).catch(error => {
+        console.error("❌ Error setting up heliocentric view:", error)
+        this.hideLoadingScreen()
+        // Continue anyway with basic setup
+        this.animate = this.animate.bind(this)
+        this.renderer.setAnimationLoop(this.animate)
+        this.setupEventListeners()
+      })
     } else {
       // Geocentric view setup is done on-demand during simulation
+      this.animate = this.animate.bind(this)
+      this.renderer.setAnimationLoop(this.animate)
+      this.setupEventListeners()
+
+      this.updateLoadingProgress(100)
+      setTimeout(() => {
+        this.hideLoadingScreen()
+        console.log("✅ Cesium Impact Controller: Ready")
+      }, 500)
     }
-
-    this.animate = this.animate.bind(this)
-    this.renderer.setAnimationLoop(this.animate)
-    this.setupEventListeners()
-
-    console.log("✅ Cesium Impact Controller: Ready")
   }
 
   /**
@@ -287,6 +334,104 @@ export default class extends Controller {
     // Geography data
     this.countryData = null
     this.hoveredCountry = null
+  }
+
+  // ============================================================================
+  // LOADING SCREEN MANAGEMENT
+  // ============================================================================
+
+  /**
+   * Show loading screen with custom message and state
+   * @param {string} state - Loading state ('initializing' or 'simulating')
+   * @param {string} title - Main loading message
+   * @param {string} subtitle - Secondary loading message
+   */
+  showLoadingScreen(state, title, subtitle) {
+    if (this.hasLoadingOverlayTarget) {
+      this.loadingOverlayTarget.style.display = 'flex'
+      this.loadingOverlayTarget.classList.remove('fade-out')
+      this.loadingOverlayTarget.setAttribute('data-loading-state', state)
+
+      if (this.hasLoadingTitleTarget) {
+        this.loadingTitleTarget.textContent = title
+      }
+      if (this.hasLoadingSubtitleTarget) {
+        this.loadingSubtitleTarget.textContent = subtitle
+      }
+
+      // Reset progress bar
+      if (this.hasProgressBarTarget) {
+        this.progressBarTarget.style.width = '0%'
+      }
+
+      // Rotate through different tips
+      if (this.hasLoadingTipTarget) {
+        const tips = [
+          '💡 Tip: Click on Earth to set impact location',
+          '🔭 Tip: Scroll to zoom, drag to rotate the view',
+          '🌍 Tip: Browse real Near-Earth Objects from NASA',
+          '☄️ Tip: Adjust impact parameters to see different effects',
+          '🛰️ Tip: Watch the orbital trajectory before impact',
+          '⏯️ Tip: Use the timeline to control playback speed'
+        ]
+        const randomTip = tips[Math.floor(Math.random() * tips.length)]
+        this.loadingTipTarget.textContent = randomTip
+      }
+    }
+  }
+
+  /**
+   * Hide loading screen with fade out animation
+   */
+  hideLoadingScreen() {
+    if (this.hasLoadingOverlayTarget) {
+      this.loadingOverlayTarget.classList.add('fade-out')
+      setTimeout(() => {
+        this.loadingOverlayTarget.style.display = 'none'
+      }, 500)
+    }
+  }
+
+  /**
+   * Update loading progress bar
+   * @param {number} percent - Progress percentage (0-100)
+   */
+  updateLoadingProgress(percent) {
+    if (this.hasProgressBarTarget) {
+      this.progressBarTarget.style.width = `${Math.min(100, Math.max(0, percent))}%`
+    }
+  }
+
+  /**
+   * Cycle through loading tips
+   */
+  startLoadingTipCycle() {
+    const tips = [
+      '💡 Tip: Click on Earth to set impact location',
+      '🔭 Tip: Scroll to zoom, drag to rotate the view',
+      '🌍 Tip: Browse real Near-Earth Objects from NASA',
+      '☄️ Tip: Adjust impact parameters to see different effects',
+      '🛰️ Tip: Watch the orbital trajectory before impact',
+      '⏯️ Tip: Use the timeline to control playback speed'
+    ]
+
+    let tipIndex = 0
+    this.tipInterval = setInterval(() => {
+      if (this.hasLoadingTipTarget) {
+        this.loadingTipTarget.textContent = tips[tipIndex]
+        tipIndex = (tipIndex + 1) % tips.length
+      }
+    }, 4000)
+  }
+
+  /**
+   * Stop cycling loading tips
+   */
+  stopLoadingTipCycle() {
+    if (this.tipInterval) {
+      clearInterval(this.tipInterval)
+      this.tipInterval = null
+    }
   }
 
   // ============================================================================
@@ -525,14 +670,32 @@ export default class extends Controller {
       // Clear any existing geocentric objects
       this.geocentricView.clearGeocentricObjects()
 
+      // Update loading message
+      if (this.hasLoadingSubtitleTarget) {
+        this.loadingSubtitleTarget.textContent = "Creating starfield background..."
+      }
+
       // Add starfield for visual appeal
       this.heliocentricView.createStarfield()
+      this.updateLoadingProgress(75)
+
+      // Update loading message
+      if (this.hasLoadingSubtitleTarget) {
+        this.loadingSubtitleTarget.textContent = "Rendering the Sun..."
+      }
 
       // Create the Sun
       this.heliocentricView.createSun()
+      this.updateLoadingProgress(78)
+
+      // Update loading message
+      if (this.hasLoadingSubtitleTarget) {
+        this.loadingSubtitleTarget.textContent = "Placing planets in their orbits..."
+      }
 
       // Create all planets with NASA textures
       await this.heliocentricView.createAllPlanets(true)
+      this.updateLoadingProgress(85)
 
       // Create Earth's orbit path (special handling)
       this.heliocentricView.createEarthOrbit()
@@ -825,6 +988,10 @@ export default class extends Controller {
     this.viewState.startSimulation()
     this.clearSimulation()
 
+    // Show loading screen for simulation
+    this.showLoadingScreen('simulating', 'Calculating Impact Dynamics', 'Running physics simulation...')
+    this.updateLoadingProgress(20)
+
     console.log("🎯 ═══════════════════════════════════════════════════════")
     console.log("🎯 SIMULATION STARTED")
     console.log("🎯 ═══════════════════════════════════════════════════════")
@@ -919,6 +1086,8 @@ export default class extends Controller {
       this.simulateBtnTarget.textContent = hasOrbitalData ? "Calculating Trajectory..." : "Calculating..."
     }
 
+    this.updateLoadingProgress(40)
+
     try {
       console.log("📤 Sending POST request to /simulate...")
       const startTime = performance.now()
@@ -930,6 +1099,8 @@ export default class extends Controller {
 
       const elapsedTime = (performance.now() - startTime).toFixed(2)
       console.log(`✅ Response received in ${elapsedTime}ms`)
+
+      this.updateLoadingProgress(60)
 
       if (!response.ok) {
         // Try to get error details from response
@@ -960,17 +1131,29 @@ export default class extends Controller {
       console.log("  - Entry Track Points:", data.entry_track?.length)
       console.log("Full response:", data)
 
+      this.updateLoadingProgress(80)
+
       await this.processSimulationData(data)
+
+      this.updateLoadingProgress(90)
 
       // Only start meteor visualization in geocentric view
       if (this.currentView === this.VIEW_MODES.GEOCENTRIC) {
         this.startVisualization()
       }
 
+      this.updateLoadingProgress(100)
+
+      // Hide loading screen after a short delay
+      setTimeout(() => {
+        this.hideLoadingScreen()
+      }, 500)
+
       console.log("🎯 ═══════════════════════════════════════════════════════")
 
     } catch (error) {
       console.error("❌ SIMULATION ERROR:", error)
+      this.hideLoadingScreen()
       alert("Simulation failed: " + error.message)
     } finally {
       if (this.simulateBtnTarget) {
@@ -1870,6 +2053,7 @@ export default class extends Controller {
   disconnect() {
     console.log("👋 Cesium Impact Controller: Disconnecting...")
 
+    this.stopLoadingTipCycle()
     this.renderer.setAnimationLoop(null)
     this.renderer.dispose()
     this.clearSimulation()

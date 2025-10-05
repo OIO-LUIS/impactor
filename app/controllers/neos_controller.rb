@@ -20,53 +20,7 @@
 # ============================================================================
 
 class NeosController < ApplicationController
-  # ============================================================================
-  # NEO BROWSE - Paginated list of all NEOs
-  # ============================================================================
-  #
-  # GET /neos/browse?page=0
-  #
-  # Parameters:
-  # - page: Page number (default: 0)
-  # - size: Results per page (default: 20)
-  #
-  # Returns: HTML partial with NEO list in Turbo Frame
-  #
-  def browse
-    page = params[:page]&.to_i || 0
-    size = params[:size]&.to_i || 20
-
-    Rails.logger.info "📡 Fetching NEO browse data (page: #{page}, size: #{size})"
-
-    begin
-      neows = NeowsService.new
-      data = neows.browse(page: page, size: size)
-
-      @neos = data["near_earth_objects"].map do |neo_data|
-        map_neo_data(neo_data)
-        puts "Mapped NEO: #{neo_data['name']}"
-        puts neo_data.inspect
-      end
-
-      @page = data.dig("page", "number") || page
-      @total_pages = data.dig("page", "total_pages") || 1
-      @total_elements = data.dig("page", "total_elements") || 0
-
-      Rails.logger.info "✅ Found #{@neos.length} NEOs (total: #{@total_elements})"
-
-      respond_to do |format|
-        format.turbo_stream { render turbo_stream: turbo_stream.update("neo_results", partial: "neos/browse_results") }
-        format.html { render partial: "neos/browse_results" }
-      end
-    rescue => e
-      Rails.logger.error "❌ NEO browse error: #{e.message}"
-      @error = e.message
-      respond_to do |format|
-        format.turbo_stream { render turbo_stream: turbo_stream.update("neo_results", partial: "neos/error") }
-        format.html { render partial: "neos/error" }
-      end
-    end
-  end
+  # NOTE: Browse functionality has been removed - using date-based search only
 
   # ============================================================================
   # NEO FEED - Get NEOs by close approach date range
@@ -103,19 +57,40 @@ class NeosController < ApplicationController
       @start_date = start_date
       @end_date = end_date
       @element_count = data["element_count"] || @neos.length
+      @data_source = "api"
 
-      Rails.logger.info "✅ Found #{@neos.length} NEOs in date range"
+      Rails.logger.info "✅ Found #{@neos.length} NEOs in date range from API"
 
       respond_to do |format|
-        format.turbo_stream { render turbo_stream: turbo_stream.update("neo_results", partial: "neos/feed_results") } 
+        format.turbo_stream { render turbo_stream: turbo_stream.update("neo_results", partial: "neos/feed_results") }
         format.html { render partial: "neos/feed_results" }
       end
     rescue => e
-      Rails.logger.error "❌ NEO feed error: #{e.message}"
-      @error = e.message
-      respond_to do |format|
-        format.turbo_stream { render turbo_stream: turbo_stream.update("neo_results", partial: "neos/error") }
-        format.html { render partial: "neos/error" }
+      Rails.logger.error "❌ NEO feed API error: #{e.message}"
+      Rails.logger.info "🔄 Attempting to fetch NEOs from database as fallback..."
+
+      # Fallback to database
+      begin
+        @neos = fetch_neos_from_database(start_date, end_date)
+        @start_date = start_date
+        @end_date = end_date
+        @element_count = @neos.length
+        @data_source = "database"
+        @api_error = "NASA API is temporarily unavailable. Showing cached data from database."
+
+        Rails.logger.info "✅ Found #{@neos.length} NEOs in database for date range"
+
+        respond_to do |format|
+          format.turbo_stream { render turbo_stream: turbo_stream.update("neo_results", partial: "neos/feed_results") }
+          format.html { render partial: "neos/feed_results" }
+        end
+      rescue => db_error
+        Rails.logger.error "❌ Database fallback also failed: #{db_error.message}"
+        @error = "Unable to fetch NEO data. Please try again later."
+        respond_to do |format|
+          format.turbo_stream { render turbo_stream: turbo_stream.update("neo_results", partial: "neos/error") }
+          format.html { render partial: "neos/error" }
+        end
       end
     end
   end
@@ -179,6 +154,102 @@ class NeosController < ApplicationController
   end
 
   private
+
+
+  # ============================================================================
+  # HELPER: Fetch NEOs from database by date range
+  # ============================================================================
+  #
+  # Fetches NEOs from the local database when the API is unavailable.
+  # Searches through the JSONB close_approaches column for dates within range.
+  #
+  # Parameters:
+  # - start_date: Start date string (YYYY-MM-DD)
+  # - end_date: End date string (YYYY-MM-DD)
+  #
+  # Returns: Array of mapped NEO data hashes
+  #
+  def fetch_neos_from_database(start_date, end_date)
+    # Parse dates
+    start_dt = Date.parse(start_date)
+    end_dt = Date.parse(end_date)
+
+    # Fetch NEOs that have close approaches within the date range
+    # Using PostgreSQL JSONB operators to search in the close_approaches array
+    neos = Neo.where(
+      "close_approaches @> ?",
+      %([{"close_approach_date": "#{start_date}"}])
+    ).or(
+      Neo.where("EXISTS (
+        SELECT 1 FROM jsonb_array_elements(close_approaches) AS ca
+        WHERE (ca->>'close_approach_date')::date BETWEEN ? AND ?
+      )", start_dt, end_dt)
+    ).limit(100)  # Limit results for performance
+
+    # If no NEOs found with close approaches, get some recent ones
+    if neos.empty?
+      Rails.logger.warn "⚠️ No NEOs found with close approaches in date range, fetching recent NEOs"
+      neos = Neo.where(potentially_hazardous: true).limit(20)
+      if neos.empty?
+        neos = Neo.limit(20)  # Just get any NEOs if nothing else
+      end
+    end
+
+    # Map database NEOs to the expected format
+    neos.map do |neo|
+      # Extract close approach data for the date range if available
+      close_approaches = neo.close_approaches || []
+      relevant_approach = close_approaches.find do |ca|
+        ca_date = Date.parse(ca["close_approach_date"]) rescue nil
+        ca_date && ca_date >= start_dt && ca_date <= end_dt
+      end || close_approaches.first  # Use first approach if none in range
+
+      # Extract velocity and miss distance from close approach data
+      velocity = 20.0  # Default
+      miss_distance = nil
+      approach_date = nil
+
+      if relevant_approach
+        velocity = relevant_approach.dig("relative_velocity", "kilometers_per_second")&.to_f || 20.0
+        miss_distance = relevant_approach.dig("miss_distance", "kilometers")&.to_f
+        approach_date = relevant_approach["close_approach_date"]
+      end
+
+      # Calculate average diameter
+      diameter_avg = if neo.est_diameter_m_min && neo.est_diameter_m_max
+                       (neo.est_diameter_m_min + neo.est_diameter_m_max) / 2.0
+                     else
+                       500.0  # Default estimate
+                     end
+
+      {
+        # Identification
+        id: neo.id.to_s,
+        neo_reference_id: neo.neo_reference_id,
+        name: neo.name,
+        nasa_jpl_url: neo.nasa_jpl_url,
+
+        # Physical Properties
+        absolute_magnitude: neo.absolute_magnitude_h,
+        diameter_m: diameter_avg.round(1),
+        diameter_min_m: neo.est_diameter_m_min&.round(1) || 100.0,
+        diameter_max_m: neo.est_diameter_m_max&.round(1) || 1000.0,
+
+        # Estimated Impact Parameters
+        density_kg_m3: estimate_density({ "albedo" => neo.albedo }),
+        estimated_strength_mpa: estimate_strength({ "albedo" => neo.albedo }),
+
+        # Close Approach Data
+        velocity_kms: velocity.round(2),
+        close_approach_date: approach_date || start_date,
+        miss_distance_km: miss_distance&.round(1),
+
+        # Hazard Assessment
+        potentially_hazardous: neo.potentially_hazardous,
+        is_sentry_object: neo.sentry_object
+      }
+    end
+  end
 
   # ============================================================================
   # HELPER: Map NASA API NEO data to our format

@@ -3,60 +3,59 @@
   data-earth-target="mount"
   data-earth-earth-url-value="<%= asset_path('earth_day.jpg') %>"
   data-earth-satellite-url-value="<%= asset_path('satellite.png') %>"
-  class="bg-canvas">
+  class="bg-canvas home-canvas">
 </div>
 
-<div class="container content" id="main">
+<div class="home-container" id="main">
   <%= render "layouts/navbar" %>
 
-  <section class="hero hero--xl" aria-labelledby="hero-title">
-    <div class="hero__wrap">
-      <p class="hero__eyebrow"><%= t("home.hero.eyebrow") %></p>
-      <h1 id="hero-title" class="hero__title">
-        <%= t("home.hero.title_html").html_safe %>
+  <section class="home-hero" aria-labelledby="hero-title">
+    <div class="home-hero__content">
+      <!-- Threat Badge -->
+      <div class="threat-badge">
+        <span class="threat-badge__icon">⚠️</span>
+        <span class="threat-badge__text">NASA Space Apps Challenge 2025</span>
+      </div>
+
+      <!-- Main Title -->
+      <h1 id="hero-title" class="home-hero__title">
+        <span class="home-hero__title-line">35k+ Near-Earth</span>
+        <span class="home-hero__title-line home-hero__title-line--gradient">Asteroids Monitored</span>
       </h1>
-      <p class="hero__subtitle"><%= t("home.hero.subtitle") %></p>
+
+      <!-- Subtitle -->
+      <p class="home-hero__subtitle">
+        Simulate asteroid impacts. Calculate damage zones. Explore mitigation strategies.<br>
+        Built with real NASA & USGS data and physics-based impact modeling.
+      </p>
+
+      <!-- Live Stats -->
+      <div class="home-stats">
+        <div class="home-stat">
+          <div class="home-stat__value">35,000+</div>
+          <div class="home-stat__label">Near-Earth Objects</div>
+        </div>
+        <div class="home-stat">
+          <div class="home-stat__value">~2,350</div>
+          <div class="home-stat__label">Potentially Hazardous</div>
+        </div>
+        <div class="home-stat">
+          <div class="home-stat__value">Real-Time</div>
+          <div class="home-stat__label">NASA Data</div>
+        </div>
+      </div>
+
+      <!-- Main CTA -->
+      <%= link_to start_simulation_path, class: "home-cta" do %>
+        <span class="home-cta__icon">☄️</span>
+        <span class="home-cta__text">Explore Impact Scenarios</span>
+        <span class="home-cta__arrow">→</span>
+      <% end %>
+
+      <!-- Secondary Info -->
+      <p class="home-hero__meta">
+        Heliocentric orbital mechanics • Physics-based impact modeling • Interactive 3D visualization
+      </p>
     </div>
   </section>
-
-  <section id="cards" class="grid" aria-label="<%= t('home.cards.aria') %>">
-    <!-- Impact Simulation (LIVE) -->
-    <%= link_to start_simulation_path, class: "card card--sim", aria: { label: t("home.cards.sim.aria_open") } do %>
-      <div class="card__head">
-        <span class="card__pill"><%= t("home.cards.sim.pill") %></span>
-        <span class="card__tag"><%= t("home.cards.sim.status") %></span>
-      </div>
-      <h2 class="card__title"><%= t("home.cards.sim.title") %></h2>
-      <p class="card__desc"><%= t("home.cards.sim.desc") %></p>
-      <span class="card__cta"><%= t("home.cards.sim.cta") %></span>
-    <% end %>
-
-    <!-- Mitigation (Gaming) -->
-    <%= link_to "#", class: "card card--mit", aria: { label: "Open Mitigation Quiz Game" } do %>
-      <div class="card__head">
-        <span class="card__pill">MIT</span>
-        <span class="card__tag">Game</span>
-      </div>
-      <h2 class="card__title"><%= t("game.title", default: "Mitigation Quiz") %></h2>
-      <p class="card__desc">
-        <%= t("game.subtitle", default: "Answer 10 questions under pressure. Learn real science behind asteroid impacts & defenses.") %>
-      </p>
-      <span class="card__cta"><%= t("game.start", default: "Play →") %></span>
-    <% end %>
-
-    <!-- Learn & Explore -->
-    <%= link_to "#", class: "card card--edu card--soon", aria: { label: t("home.cards.learn.aria_open") } do %>
-      <div class="card__head">
-        <span class="card__pill"><%= t("home.cards.learn.pill") %></span>
-        <span class="card__tag"><%= t("home.cards.learn.status") %></span>
-      </div>
-      <h2 class="card__title"><%= t("home.cards.learn.title") %></h2>
-      <p class="card__desc"><%= t("home.cards.learn.desc") %></p>
-      <span class="card__cta"><%= t("home.cards.learn.cta") %></span>
-    <% end %>
-  </section>
-
-  <footer class="footer" role="contentinfo">
-    <%= t("app.footer") %>
-  </footer>
 </div>

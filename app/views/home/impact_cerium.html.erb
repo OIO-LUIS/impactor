@@ -22,6 +22,26 @@
       data-cesium-impact-earth-normal-url-value="<%= asset_path('earth_normal.jpg') %>"
       data-cesium-impact-earth-spec-url-value="<%= asset_path('earth_spec.jpg') %>">
 
+  <!-- Loading Screen -->
+  <div class="loading-overlay" data-cesium-impact-target="loadingOverlay">
+    <div class="loading-content">
+      <div class="loading-spinner">
+        <div class="orbit-ring"></div>
+        <div class="orbit-ring"></div>
+        <div class="orbit-ring"></div>
+        <div class="planet-dot"></div>
+      </div>
+      <h2 class="loading-title" data-cesium-impact-target="loadingTitle">Initializing Solar System</h2>
+      <p class="loading-subtitle" data-cesium-impact-target="loadingSubtitle">Loading planetary textures and orbital data...</p>
+      <div class="loading-progress">
+        <div class="progress-bar" data-cesium-impact-target="progressBar"></div>
+      </div>
+      <div class="loading-tips">
+        <p data-cesium-impact-target="loadingTip">💡 Tip: Click on Earth to set impact location</p>
+      </div>
+    </div>
+  </div>
+
   <!-- Cesium Container -->
   <div id="cesiumContainer" data-cesium-impact-target="cesiumContainer"></div>
 
@@ -31,39 +51,28 @@
         style="display: none;">
     <div class="neo-browser-content">
       <div class="neo-browser-header">
-        <h3>Browse Near-Earth Objects</h3>
+        <h3>Search Near-Earth Objects</h3>
         <button type="button"
                 class="close-btn"
-                data-action="click->neo-browser#close">✕</button>
+                data-action="click->neo-browser#close"
+                title="Close (ESC)">✕</button>
       </div>
 
       <!-- Search Controls -->
       <div class="neo-search-controls">
-        <div class="search-tabs">
-          <button type="button"
-                  class="tab-btn active"
-                  data-action="click->neo-browser#switchToBrowse">
-            Browse All
-          </button>
-          <button type="button"
-                  class="tab-btn"
-                  data-action="click->neo-browser#switchToFeed">
-            By Date
-          </button>
+        <div class="search-header">
+          <h4>Search by Close Approach Date</h4>
+          <p class="search-help">Find NEOs approaching Earth within a specific date range</p>
         </div>
 
-        <!-- Browse Controls -->
-        <div class="browse-controls" data-neo-browser-target="browseControls">
-          <p class="search-help">Browse all known Near-Earth Objects from NASA's database</p>
-        </div>
-
-        <!-- Feed Controls -->
-        <div class="feed-controls" data-neo-browser-target="feedControls" style="display: none;">
+        <!-- Date Search Controls -->
+        <div class="date-search-controls">
           <div class="date-inputs">
             <div class="date-input-group">
               <label>Start Date</label>
               <input type="date"
                       data-neo-browser-target="startDate"
+                      data-action="keydown.enter->neo-browser#searchByDate"
                       value="<%= Date.today.to_s %>"
                       max="<%= (Date.today + 7.days).to_s %>">
             </div>
@@ -71,23 +80,30 @@
               <label>End Date</label>
               <input type="date"
                       data-neo-browser-target="endDate"
+                      data-action="keydown.enter->neo-browser#searchByDate"
                       value="<%= (Date.today + 6.days).to_s %>"
                       max="<%= (Date.today + 7.days).to_s %>">
             </div>
           </div>
           <button type="button"
-                  class="btn btn-primary"
+                  class="btn btn-primary search-btn"
                   data-action="click->neo-browser#searchByDate"
-                  style="width: 100%; margin-top: 0.5rem;">
-            Search
+                  data-neo-browser-target="searchButton">
+            <span class="search-icon">🔍</span>
+            Search NEOs
           </button>
         </div>
       </div>
 
       <!-- Results Container -->
       <%= turbo_frame_tag "neo_results" do %>
-        <div class="neo-loading">
-          <p>Click "Browse All" or select a date range to view NEOs</p>
+        <div class="neo-initial-state">
+          <div class="initial-icon">🌌</div>
+          <p class="initial-message">Ready to explore Near-Earth Objects</p>
+          <p class="initial-submessage">Select a date range to find approaching asteroids</p>
+          <div class="quick-tips">
+            <span class="tip">💡 Tip: Search up to 7 days of close approaches</span>
+          </div>
         </div>
       <% end %>
     </div>

@@ -23,7 +23,7 @@ import { Controller } from "@hotwired/stimulus"
 import { get } from "@rails/request.js"
 
 export default class extends Controller {
-  static targets = ["modal", "browseControls", "feedControls", "startDate", "endDate"]
+  static targets = ["modal", "startDate", "endDate", "searchButton"]
 
   // ============================================================================
   // LIFECYCLE
@@ -31,7 +31,43 @@ export default class extends Controller {
 
   connect() {
     console.log("🔍 NEO Browser: Connected")
-    this.currentMode = "browse"
+    this.isLoading = false
+
+    // Add keyboard shortcuts
+    this.handleKeydown = (e) => {
+      // Ctrl/Cmd + K to open search
+      if ((e.ctrlKey || e.metaKey) && e.key === 'k') {
+        e.preventDefault()
+        this.openAndFocusSearch()
+      }
+
+      // ESC to close modal
+      if (e.key === 'Escape' && this.modalTarget.style.display !== 'none') {
+        e.preventDefault()
+        this.close()
+      }
+    }
+
+    document.addEventListener('keydown', this.handleKeydown)
+  }
+
+  disconnect() {
+    // Clean up event listener
+    if (this.handleKeydown) {
+      document.removeEventListener('keydown', this.handleKeydown)
+    }
+  }
+
+  /**
+   * Open modal and focus on search
+   */
+  openAndFocusSearch() {
+    this.modalTarget.style.display = "flex"
+    setTimeout(() => {
+      if (this.hasStartDateTarget) {
+        this.startDateTarget.focus()
+      }
+    }, 100)
   }
 
   // ============================================================================
@@ -40,7 +76,6 @@ export default class extends Controller {
 
   /**
    * Toggle modal visibility
-   * Opens modal and automatically loads browse data on first open
    */
   toggle(event) {
     console.log("🔍 NEO Browser: Toggling modal")
@@ -50,11 +85,6 @@ export default class extends Controller {
     if (isHidden) {
       this.modalTarget.style.display = "flex"
       console.log("🔍 NEO Browser: Modal opened")
-
-      // Auto-load browse data on first open
-      if (this.currentMode === "browse") {
-        this.loadBrowse()
-      }
     } else {
       this.close()
     }
@@ -70,75 +100,8 @@ export default class extends Controller {
   }
 
   // ============================================================================
-  // TAB SWITCHING
-  // ============================================================================
-
-  /**
-   * Switch to "Browse All" mode
-   * Shows browse controls and loads all NEOs
-   */
-  switchToBrowse(event) {
-    event.preventDefault()
-    this.currentMode = "browse"
-
-    // Update tab button states
-    event.currentTarget.classList.add("active")
-    event.currentTarget.nextElementSibling?.classList.remove("active")
-
-    // Show/hide controls
-    this.browseControlsTarget.style.display = "block"
-    this.feedControlsTarget.style.display = "none"
-
-    console.log("🔍 NEO Browser: Switched to Browse mode")
-
-    // Load browse data
-    this.loadBrowse()
-  }
-
-  /**
-   * Switch to "By Date" mode
-   * Shows date range controls
-   */
-  switchToFeed(event) {
-    event.preventDefault()
-    this.currentMode = "feed"
-
-    // Update tab button states
-    event.currentTarget.classList.add("active")
-    event.currentTarget.previousElementSibling?.classList.remove("active")
-
-    // Show/hide controls
-    this.browseControlsTarget.style.display = "none"
-    this.feedControlsTarget.style.display = "block"
-
-    console.log("🔍 NEO Browser: Switched to Feed mode")
-  }
-
-  // ============================================================================
   // DATA LOADING
   // ============================================================================
-
-  /**
-   * Load browse data (all NEOs, paginated)
-   * Uses Turbo Frames to update results without page reload
-   */
-  async loadBrowse(page = 0) {
-    console.log(`🔍 NEO Browser: Loading browse data (page ${page})...`)
-
-    try {
-      const response = await get(`/neos/browse?page=${page}`, {
-        responseKind: "turbo-stream"
-      })
-
-      if (response.ok) {
-        console.log("✅ NEO Browser: Browse data loaded")
-      } else {
-        console.error("❌ NEO Browser: Failed to load browse data")
-      }
-    } catch (error) {
-      console.error("❌ NEO Browser error:", error)
-    }
-  }
 
   /**
    * Search NEOs by date range
@@ -146,6 +109,9 @@ export default class extends Controller {
    */
   async searchByDate(event) {
     event.preventDefault()
+
+    // Prevent duplicate requests
+    if (this.isLoading) return
 
     const startDate = this.startDateTarget.value
     const endDate = this.endDateTarget.value
@@ -167,6 +133,8 @@ export default class extends Controller {
       return
     }
 
+    this.showLoadingState()
+
     try {
       const response = await get(`/neos/feed?start_date=${startDate}&end_date=${endDate}`, {
         responseKind: "turbo-stream"
@@ -176,9 +144,85 @@ export default class extends Controller {
         console.log("✅ NEO Browser: Feed data loaded")
       } else {
         console.error("❌ NEO Browser: Failed to load feed data")
+        this.showErrorInResults("Failed to load NEO data. Please try again.")
       }
     } catch (error) {
       console.error("❌ NEO Browser error:", error)
+      this.showErrorInResults("An error occurred while searching NEOs.")
+    } finally {
+      this.hideLoadingState()
+    }
+  }
+
+  // ============================================================================
+  // LOADING STATE MANAGEMENT
+  // ============================================================================
+
+  /**
+   * Show loading state in the results area
+   */
+  showLoadingState() {
+    this.isLoading = true
+
+    // Disable buttons during loading
+    const buttons = this.element.querySelectorAll('button')
+    buttons.forEach(btn => btn.disabled = true)
+
+    // Random loading messages for variety
+    const loadingMessages = [
+      { main: "Searching for Near-Earth Objects...", sub: "Connecting to NASA database" },
+      { main: "Scanning orbital trajectories...", sub: "Analyzing close approaches" },
+      { main: "Retrieving asteroid data...", sub: "Processing NASA JPL records" },
+      { main: "Calculating orbital parameters...", sub: "Determining closest approaches" },
+      { main: "Accessing NEO database...", sub: "Fetching latest observations" }
+    ]
+
+    const randomMessage = loadingMessages[Math.floor(Math.random() * loadingMessages.length)]
+
+    // Show loading spinner in results
+    const resultsFrame = document.getElementById('neo_results')
+    if (resultsFrame) {
+      resultsFrame.innerHTML = `
+        <div class="neo-loading-state">
+          <div class="neo-spinner-container">
+            <div class="neo-orbit-spinner">
+              <div class="orbit orbit-1"></div>
+              <div class="orbit orbit-2"></div>
+              <div class="orbit orbit-3"></div>
+              <div class="center-dot"></div>
+            </div>
+          </div>
+          <p class="loading-message">${randomMessage.main}</p>
+          <p class="loading-submessage">${randomMessage.sub}</p>
+        </div>
+      `
+    }
+  }
+
+  /**
+   * Hide loading state
+   */
+  hideLoadingState() {
+    this.isLoading = false
+
+    // Re-enable buttons
+    const buttons = this.element.querySelectorAll('button')
+    buttons.forEach(btn => btn.disabled = false)
+  }
+
+  /**
+   * Show error message in results area
+   */
+  showErrorInResults(message) {
+    const resultsFrame = document.getElementById('neo_results')
+    if (resultsFrame) {
+      resultsFrame.innerHTML = `
+        <div class="neo-error-state">
+          <span class="error-icon">⚠️</span>
+          <p class="error-message">${message}</p>
+          <button class="retry-btn" onclick="location.reload()">Retry</button>
+        </div>
+      `
     }
   }
 }

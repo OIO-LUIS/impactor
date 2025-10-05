@@ -90,7 +90,7 @@ export default class extends Controller {
     this.scene.add(this.earth)
   }
 
-  addStars(count = 1500) {
+  addStars(count = 3500) {
     const positions = new Float32Array(count * 3)
     const radiusMin = 30
     const radiusMax = 80
@@ -107,7 +107,7 @@ export default class extends Controller {
 
     this.starsMat = new THREE.PointsMaterial({
       color: 0xffffff,
-      size: 0.05,
+      size: 0.08,
       sizeAttenuation: true,
       transparent: true,
       depthWrite: false
@@ -167,10 +167,12 @@ export default class extends Controller {
   // ──────────────────────────────────────────────────────────────────────────
   // Meteors: sphere head + glow trail
   spawnMeteor() {
-    const headRadius = THREE.MathUtils.randFloat(0.015, 0.028)
+    const headRadius = THREE.MathUtils.randFloat(0.025, 0.045)
     const headGeom = new THREE.SphereGeometry(headRadius, 16, 16)
+    const colorChoice = Math.random()
+    const meteorColor = colorChoice > 0.7 ? 0xff7733 : (colorChoice > 0.4 ? 0xffd699 : 0xfff1cc)
     const headMat = new THREE.MeshBasicMaterial({
-      color: 0xfff1cc,
+      color: meteorColor,
       transparent: true,
       opacity: 1.0,
       blending: THREE.AdditiveBlending,
@@ -179,41 +181,42 @@ export default class extends Controller {
     })
     const head = new THREE.Mesh(headGeom, headMat)
 
-    // Lower band across the screen
-    const z = THREE.MathUtils.randFloat(-0.25, 0.25)
-    const startY = THREE.MathUtils.randFloat(-0.2, 0.6)
-    const endY = startY - THREE.MathUtils.randFloat(0.9, 1.7)
+    // Wider band across the screen for more coverage
+    const z = THREE.MathUtils.randFloat(-0.5, 0.5)
+    const startY = THREE.MathUtils.randFloat(-0.3, 0.8)
+    const endY = startY - THREE.MathUtils.randFloat(1.2, 2.2)
 
-    const start = new THREE.Vector3(-5, startY, z)
-    const end   = new THREE.Vector3( 5, endY,   z)
+    const start = new THREE.Vector3(-6, startY, z)
+    const end   = new THREE.Vector3( 6, endY,   z)
 
-    const lifetime = THREE.MathUtils.randFloat(1.8, 2.8)
+    const lifetime = THREE.MathUtils.randFloat(1.5, 2.5)
     const t0 = this.clock.getElapsedTime()
 
     head.position.copy(start)
     this.scene.add(head)
 
     const trailParticles = []
-    const spawnEvery = 0.02
+    const spawnEvery = 0.015
     let lastSpawn = t0
 
     this.meteors.push({ head, start, end, t0, lifetime, trailParticles, spawnEvery, lastSpawn })
   }
 
   _emitTrailParticle(meteor, now) {
+    const trailColor = meteor.head.material.color.getHex()
     const mat = new THREE.SpriteMaterial({
       map: this._particleTex,
-      color: 0xffd6a0,
+      color: trailColor,
       transparent: true,
-      opacity: 0.8,
+      opacity: 0.9,
       blending: THREE.AdditiveBlending,
       depthWrite: false,
       toneMapped: false
     })
     const p = new THREE.Sprite(mat)
-    p.scale.set(0.06, 0.06, 1)
+    p.scale.set(0.09, 0.09, 1)
     p.position.copy(meteor.head.position)
-    const life = THREE.MathUtils.randFloat(0.6, 1.0)
+    const life = THREE.MathUtils.randFloat(0.7, 1.2)
     const birth = now
     this.scene.add(p)
     meteor.trailParticles.push({ sprite: p, birth, life })
@@ -234,8 +237,8 @@ export default class extends Controller {
         meteor.trailParticles.splice(i, 1)
         continue
       }
-      tp.sprite.material.opacity = (1 - u) * 0.8
-      const s = 0.06 + u * 0.04
+      tp.sprite.material.opacity = (1 - u) * 0.9
+      const s = 0.09 + u * 0.06
       tp.sprite.scale.set(s, s, 1)
       const dir = new THREE.Vector3().subVectors(meteor.end, meteor.start).normalize().multiplyScalar(-0.015)
       tp.sprite.position.addScaledVector(dir, 1)
@@ -255,10 +258,10 @@ export default class extends Controller {
       if (this.starsMat) this.starsMat.opacity = 0.7 + 0.2 * Math.sin(t * 0.5)
     }
 
-    // Meteor frequency (adjust as needed)
+    // Meteor frequency (dramatic, frequent impacts)
     if (t > this.nextMeteorAt) {
       this.spawnMeteor()
-      this.nextMeteorAt = t + THREE.MathUtils.randFloat(2.0, 4.0)
+      this.nextMeteorAt = t + THREE.MathUtils.randFloat(0.8, 1.8)
     }
 
     // Update meteors

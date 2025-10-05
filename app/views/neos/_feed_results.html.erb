@@ -1,10 +1,22 @@
 <%= turbo_frame_tag "neo_results" do %>
   <div class="neo-list">
+    <% if @api_error.present? %>
+      <div class="api-fallback-notice">
+        <span class="notice-icon">⚠️</span>
+        <span class="notice-text"><%= @api_error %></span>
+      </div>
+    <% end %>
+
     <div class="feed-header">
       <span class="feed-date-range">
         <%= Date.parse(@start_date).strftime("%b %d, %Y") %> - <%= Date.parse(@end_date).strftime("%b %d, %Y") %>
       </span>
-      <span class="feed-count"><%= @neos.length %> close approaches</span>
+      <span class="feed-count">
+        <%= @neos.length %> close approaches
+        <% if @data_source == "database" %>
+          <span class="data-source-badge" title="Data from local database">📂 Cached</span>
+        <% end %>
+      </span>
     </div>
 
     <% if @neos.any? %>

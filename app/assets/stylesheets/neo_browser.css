@@ -1,0 +1,587 @@
+/* ============================================================================
+   NEO BROWSER STYLES
+   ============================================================================ */
+
+/* API Fallback Notice */
+.api-fallback-notice {
+  background: linear-gradient(135deg, rgba(255, 152, 0, 0.1), rgba(255, 193, 7, 0.1));
+  border: 1px solid rgba(255, 152, 0, 0.3);
+  border-radius: 6px;
+  padding: 0.75rem 1rem;
+  margin-bottom: 1rem;
+  display: flex;
+  align-items: center;
+  gap: 0.5rem;
+  animation: slide-down 0.3s ease-out;
+}
+
+@keyframes slide-down {
+  from {
+    opacity: 0;
+    transform: translateY(-10px);
+  }
+  to {
+    opacity: 1;
+    transform: translateY(0);
+  }
+}
+
+.api-fallback-notice .notice-icon {
+  font-size: 1.2rem;
+  filter: drop-shadow(0 0 3px rgba(255, 152, 0, 0.5));
+}
+
+.api-fallback-notice .notice-text {
+  color: #ffa726;
+  font-size: 0.9rem;
+  line-height: 1.4;
+  flex: 1;
+}
+
+/* Data Source Badge */
+.data-source-badge {
+  background: rgba(100, 181, 246, 0.1);
+  border: 1px solid rgba(100, 181, 246, 0.3);
+  color: #64b5f6;
+  padding: 0.2rem 0.5rem;
+  border-radius: 4px;
+  font-size: 0.75rem;
+  font-weight: 500;
+  margin-left: 0.5rem;
+  display: inline-flex;
+  align-items: center;
+  gap: 0.25rem;
+  text-transform: uppercase;
+  letter-spacing: 0.5px;
+}
+
+.data-source-badge:hover {
+  background: rgba(100, 181, 246, 0.2);
+  border-color: rgba(100, 181, 246, 0.5);
+}
+
+/* Feed Header Enhancements */
+.feed-header {
+  display: flex;
+  justify-content: space-between;
+  align-items: center;
+  padding: 0.75rem 1rem;
+  background: rgba(255, 255, 255, 0.02);
+  border-bottom: 1px solid rgba(255, 255, 255, 0.1);
+  margin-bottom: 0.5rem;
+}
+
+.feed-count {
+  display: flex;
+  align-items: center;
+  gap: 0.5rem;
+  font-weight: 500;
+}
+
+.feed-date-range {
+  color: #90a4ae;
+  font-size: 0.95rem;
+}
+
+/* NEO Item Hover Effects */
+.neo-item {
+  transition: all 0.2s ease;
+  cursor: pointer;
+  position: relative;
+}
+
+.neo-item:hover {
+  background: rgba(33, 150, 243, 0.05);
+  transform: translateX(2px);
+}
+
+.neo-item::before {
+  content: '';
+  position: absolute;
+  left: 0;
+  top: 0;
+  bottom: 0;
+  width: 3px;
+  background: transparent;
+  transition: background 0.2s ease;
+}
+
+.neo-item:hover::before {
+  background: linear-gradient(180deg, #2196f3, #1976d2);
+}
+
+/* Empty State */
+.neo-empty {
+  text-align: center;
+  padding: 3rem 1rem;
+  color: #78909c;
+}
+
+.neo-empty p {
+  font-size: 0.95rem;
+  margin: 0;
+}
+
+/* Loading State */
+.neo-loading {
+  text-align: center;
+  padding: 3rem 1rem;
+  color: #90a4ae;
+}
+
+.neo-loading::before {
+  content: '';
+  display: inline-block;
+  width: 24px;
+  height: 24px;
+  border: 2px solid rgba(33, 150, 243, 0.2);
+  border-top-color: #2196f3;
+  border-radius: 50%;
+  animation: spin 1s linear infinite;
+  margin-bottom: 1rem;
+}
+
+@keyframes spin {
+  to {
+    transform: rotate(360deg);
+  }
+}
+
+/* Error State */
+.neo-error {
+  background: rgba(244, 67, 54, 0.1);
+  border: 1px solid rgba(244, 67, 54, 0.3);
+  border-radius: 6px;
+  padding: 1rem;
+  margin: 1rem;
+  color: #ef5350;
+}
+
+.neo-error h4 {
+  margin: 0 0 0.5rem 0;
+  font-size: 1rem;
+  font-weight: 500;
+}
+
+.neo-error p {
+  margin: 0;
+  font-size: 0.9rem;
+  opacity: 0.9;
+}
+
+/* Loading State with Orbital Animation */
+.neo-loading-state {
+  display: flex;
+  flex-direction: column;
+  align-items: center;
+  justify-content: center;
+  padding: 4rem 2rem;
+  min-height: 400px;
+  animation: fadeIn 0.3s ease-out;
+}
+
+@keyframes fadeIn {
+  from {
+    opacity: 0;
+    transform: translateY(10px);
+  }
+  to {
+    opacity: 1;
+    transform: translateY(0);
+  }
+}
+
+.neo-spinner-container {
+  margin-bottom: 2rem;
+}
+
+.neo-orbit-spinner {
+  width: 80px;
+  height: 80px;
+  position: relative;
+  margin: 0 auto;
+}
+
+.neo-orbit-spinner .orbit {
+  position: absolute;
+  border: 2px solid transparent;
+  border-radius: 50%;
+  animation: neoOrbit 2s linear infinite;
+}
+
+.neo-orbit-spinner .orbit-1 {
+  width: 100%;
+  height: 100%;
+  border-top-color: #2196f3;
+  border-right-color: #2196f3;
+  animation-duration: 3s;
+}
+
+.neo-orbit-spinner .orbit-2 {
+  width: 70%;
+  height: 70%;
+  top: 15%;
+  left: 15%;
+  border-top-color: #64b5f6;
+  border-left-color: #64b5f6;
+  animation-duration: 2s;
+  animation-direction: reverse;
+}
+
+.neo-orbit-spinner .orbit-3 {
+  width: 40%;
+  height: 40%;
+  top: 30%;
+  left: 30%;
+  border-bottom-color: #90caf9;
+  border-right-color: #90caf9;
+  animation-duration: 1.5s;
+}
+
+.neo-orbit-spinner .center-dot {
+  position: absolute;
+  width: 10px;
+  height: 10px;
+  background: linear-gradient(135deg, #2196f3, #64b5f6);
+  border-radius: 50%;
+  top: 50%;
+  left: 50%;
+  transform: translate(-50%, -50%);
+  box-shadow: 0 0 20px rgba(33, 150, 243, 0.6);
+  animation: pulse 1.5s ease-in-out infinite;
+}
+
+@keyframes neoOrbit {
+  from {
+    transform: rotate(0deg);
+  }
+  to {
+    transform: rotate(360deg);
+  }
+}
+
+@keyframes pulse {
+  0%, 100% {
+    transform: translate(-50%, -50%) scale(1);
+    opacity: 1;
+  }
+  50% {
+    transform: translate(-50%, -50%) scale(1.3);
+    opacity: 0.7;
+  }
+}
+
+.loading-message {
+  font-size: 1.1rem;
+  color: #e3f2fd;
+  margin: 0 0 0.5rem 0;
+  font-weight: 300;
+  letter-spacing: 0.5px;
+}
+
+.loading-submessage {
+  font-size: 0.9rem;
+  color: #90caf9;
+  margin: 0;
+  opacity: 0.8;
+  animation: fadeInOut 2s ease-in-out infinite;
+}
+
+@keyframes fadeInOut {
+  0%, 100% {
+    opacity: 0.5;
+  }
+  50% {
+    opacity: 1;
+  }
+}
+
+/* Error State Enhanced */
+.neo-error-state {
+  display: flex;
+  flex-direction: column;
+  align-items: center;
+  justify-content: center;
+  padding: 3rem 2rem;
+  min-height: 300px;
+  animation: fadeIn 0.3s ease-out;
+}
+
+.neo-error-state .error-icon {
+  font-size: 3rem;
+  margin-bottom: 1rem;
+  filter: drop-shadow(0 0 10px rgba(255, 152, 0, 0.5));
+  animation: wobble 0.5s ease-in-out;
+}
+
+@keyframes wobble {
+  0%, 100% {
+    transform: rotate(0deg);
+  }
+  25% {
+    transform: rotate(-10deg);
+  }
+  75% {
+    transform: rotate(10deg);
+  }
+}
+
+.neo-error-state .error-message {
+  color: #ffa726;
+  font-size: 1rem;
+  margin: 0 0 1.5rem 0;
+  text-align: center;
+  max-width: 300px;
+  line-height: 1.5;
+}
+
+.neo-error-state .retry-btn {
+  background: linear-gradient(135deg, #ff6b35, #ff8f65);
+  color: white;
+  border: none;
+  padding: 0.75rem 1.5rem;
+  border-radius: 6px;
+  font-size: 0.95rem;
+  font-weight: 500;
+  cursor: pointer;
+  transition: all 0.2s ease;
+  box-shadow: 0 4px 12px rgba(255, 107, 53, 0.3);
+}
+
+.neo-error-state .retry-btn:hover {
+  transform: translateY(-2px);
+  box-shadow: 0 6px 20px rgba(255, 107, 53, 0.4);
+}
+
+.neo-error-state .retry-btn:active {
+  transform: translateY(0);
+}
+
+/* Button disabled state during loading */
+button:disabled {
+  opacity: 0.5;
+  cursor: not-allowed;
+  position: relative;
+}
+
+button:disabled::after {
+  content: '';
+  position: absolute;
+  width: 16px;
+  height: 16px;
+  border: 2px solid rgba(255, 255, 255, 0.3);
+  border-top-color: white;
+  border-radius: 50%;
+  top: 50%;
+  right: 10px;
+  transform: translateY(-50%);
+  animation: buttonSpin 1s linear infinite;
+}
+
+@keyframes buttonSpin {
+  to {
+    transform: translateY(-50%) rotate(360deg);
+  }
+}
+
+/* Tab button specific loading state */
+.tab-btn:disabled::after {
+  display: none;
+}
+
+.tab-btn:disabled {
+  background: rgba(128, 128, 128, 0.2);
+  color: rgba(255, 255, 255, 0.4);
+}
+
+/* Initial State */
+.neo-initial-state {
+  display: flex;
+  flex-direction: column;
+  align-items: center;
+  justify-content: center;
+  padding: 4rem 2rem;
+  min-height: 400px;
+  opacity: 0.7;
+  transition: opacity 0.3s ease;
+}
+
+.neo-initial-state:hover {
+  opacity: 0.9;
+}
+
+.initial-icon {
+  font-size: 4rem;
+  margin-bottom: 1rem;
+  animation: float 3s ease-in-out infinite;
+}
+
+@keyframes float {
+  0%, 100% {
+    transform: translateY(0);
+  }
+  50% {
+    transform: translateY(-10px);
+  }
+}
+
+.initial-message {
+  font-size: 1.2rem;
+  color: #e3f2fd;
+  margin: 0 0 0.5rem 0;
+  font-weight: 300;
+  letter-spacing: 0.5px;
+}
+
+.initial-submessage {
+  font-size: 0.95rem;
+  color: #90caf9;
+  margin: 0 0 1.5rem 0;
+  opacity: 0.8;
+}
+
+.quick-tips {
+  display: inline-block;
+  padding: 0.75rem 1.25rem;
+  background: rgba(33, 150, 243, 0.1);
+  border: 1px solid rgba(33, 150, 243, 0.2);
+  border-radius: 20px;
+  animation: glow 3s ease-in-out infinite;
+}
+
+@keyframes glow {
+  0%, 100% {
+    box-shadow: 0 0 10px rgba(33, 150, 243, 0.2);
+  }
+  50% {
+    box-shadow: 0 0 20px rgba(33, 150, 243, 0.4);
+  }
+}
+
+.quick-tips .tip {
+  color: #64b5f6;
+  font-size: 0.85rem;
+  font-weight: 500;
+  letter-spacing: 0.3px;
+}
+
+/* Search Header */
+.search-header {
+  text-align: center;
+  padding: 1rem;
+  background: linear-gradient(135deg, rgba(33, 150, 243, 0.05), rgba(100, 181, 246, 0.05));
+  border-radius: 8px;
+  margin-bottom: 1.5rem;
+}
+
+.search-header h4 {
+  margin: 0 0 0.5rem 0;
+  color: #e3f2fd;
+  font-size: 1.2rem;
+  font-weight: 400;
+  letter-spacing: 0.5px;
+}
+
+.search-header .search-help {
+  margin: 0;
+  color: #90caf9;
+  font-size: 0.9rem;
+  opacity: 0.9;
+}
+
+/* Date Search Controls */
+.date-search-controls {
+  padding: 0 1rem;
+}
+
+.date-inputs {
+  display: grid;
+  grid-template-columns: 1fr 1fr;
+  gap: 1rem;
+  margin-bottom: 1rem;
+}
+
+.date-input-group {
+  display: flex;
+  flex-direction: column;
+}
+
+.date-input-group label {
+  color: #90caf9;
+  font-size: 0.85rem;
+  font-weight: 500;
+  margin-bottom: 0.5rem;
+  text-transform: uppercase;
+  letter-spacing: 0.5px;
+}
+
+.date-input-group input[type="date"] {
+  padding: 0.75rem;
+  background: rgba(255, 255, 255, 0.05);
+  border: 1px solid rgba(100, 181, 246, 0.3);
+  border-radius: 6px;
+  color: #e3f2fd;
+  font-size: 0.95rem;
+  transition: all 0.2s ease;
+}
+
+.date-input-group input[type="date"]:hover {
+  background: rgba(255, 255, 255, 0.08);
+  border-color: rgba(100, 181, 246, 0.5);
+}
+
+.date-input-group input[type="date"]:focus {
+  outline: none;
+  background: rgba(255, 255, 255, 0.1);
+  border-color: #2196f3;
+  box-shadow: 0 0 0 3px rgba(33, 150, 243, 0.1);
+}
+
+/* Search Button */
+.search-btn {
+  width: 100%;
+  padding: 1rem;
+  background: linear-gradient(135deg, #2196f3, #1976d2);
+  border: none;
+  border-radius: 8px;
+  color: white;
+  font-size: 1rem;
+  font-weight: 500;
+  letter-spacing: 0.5px;
+  cursor: pointer;
+  transition: all 0.3s ease;
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  gap: 0.5rem;
+  box-shadow: 0 4px 12px rgba(33, 150, 243, 0.3);
+}
+
+.search-btn:hover:not(:disabled) {
+  transform: translateY(-2px);
+  box-shadow: 0 6px 20px rgba(33, 150, 243, 0.4);
+  background: linear-gradient(135deg, #1e88e5, #1565c0);
+}
+
+.search-btn:active:not(:disabled) {
+  transform: translateY(0);
+}
+
+.search-btn .search-icon {
+  font-size: 1.1rem;
+}
+
+.search-btn:disabled {
+  opacity: 0.6;
+  cursor: not-allowed;
+  transform: none;
+}
+
+/* Remove tab styles since we don't need them anymore */
+.search-tabs {
+  display: none;
+}
+
+.tab-btn {
+  display: none;
+}

@@ -1,10 +1,18 @@
 # app/services/import_neos_service.rb
 class ImportNeosService
-  def initialize(start_date:, end_date: start_date, neows: NeowsService.new, logger: Rails.logger)
+  def initialize(start_date: nil, end_date: nil, neows: NeowsService.new, logger: Rails.logger)
     @start_date = start_date
-    @end_date   = end_date
+    @end_date   = end_date || start_date
     @neows      = neows
     @logger     = logger
+  end
+
+  # Convenience method for rake task
+  def import_date_range(start_date:, end_date:)
+    @start_date = start_date
+    @end_date = end_date
+    result = call
+    result[:created_or_updated]
   end
 
   def call

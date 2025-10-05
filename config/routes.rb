@@ -11,8 +11,7 @@ Rails.application.routes.draw do
 
   end
 
-    # NEO Browser API routes
-  get  "/neos/browse", to: "neos#browse"
+    # NEO Browser API routes (date search only)
   get  "/neos/feed", to: "neos#feed"
   get  "/neos/:id", to: "neos#show"
 
