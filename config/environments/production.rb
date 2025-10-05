@@ -105,5 +105,5 @@ Rails.application.configure do
   config.assets.unknown_asset_fallback = false
 
   # Asset resolution fix
-  config.assets.precompile += %w( controllers/*.js services/**/*.js vendors/**/*.js )
+  # config.assets.precompile += %w( controllers/*.js services/**/*.js vendors/**/*.js )
 end# Force rebuild Sun Oct  5 00:03:58 CST 2025
