@@ -106,4 +106,4 @@ Rails.application.configure do
 
   # Asset resolution fix
   config.assets.precompile += %w( controllers/*.js services/**/*.js vendors/**/*.js )
-end
+end# Force rebuild Sun Oct  5 00:03:58 CST 2025
