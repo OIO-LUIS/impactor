@@ -1,0 +1,74 @@
+#!/usr/bin/env ruby
+
+# Asset debugging script for production issues
+puts "🔍 Debugging asset configuration..."
+
+# Check importmap configuration
+puts "\n📋 Checking importmap configuration:"
+importmap_content = File.read("config/importmap.rb")
+if importmap_content.include?('pin_all_from "app/javascript/controllers"')
+  puts "✅ Controllers are pinned via pin_all_from"
+else
+  puts "❌ Controllers pin_all_from not found"
+end
+
+# Check if assets are precompiled
+puts "\n📁 Checking compiled assets:"
+if Dir.exist?("public/assets")
+  manifest_files = Dir.glob("public/assets/.sprockets-manifest-*.json")
+  if manifest_files.any?
+    puts "✅ Asset manifest found: #{manifest_files.first}"
+    
+    # Check for controller assets
+    controller_files = Dir.glob("public/assets/controllers/*.js").reject { |f| f.include?('.gz') }
+    puts "✅ Found #{controller_files.size} controller assets:"
+    controller_files.first(5).each { |f| puts "  - #{File.basename(f)}" }
+    puts "  ... and #{controller_files.size - 5} more" if controller_files.size > 5
+    
+  else
+    puts "❌ No asset manifest found"
+  end
+else
+  puts "❌ public/assets directory not found"
+end
+
+# Check production configuration
+puts "\n⚙️  Checking production configuration:"
+production_config = File.read("config/environments/production.rb")
+
+if production_config.include?("config.public_file_server.enabled = true")
+  puts "✅ Static file serving enabled"
+else
+  puts "❌ Static file serving not explicitly enabled"
+end
+
+if production_config.include?("config.assets.compile = false")
+  puts "✅ Asset compilation disabled (correct for production)"
+else
+  puts "⚠️  Asset compilation setting unclear"
+end
+
+if production_config.include?("config.assets.digest = true")
+  puts "✅ Asset digests enabled"
+else
+  puts "⚠️  Asset digest setting not explicit"
+end
+
+# Check for stimulus controllers
+puts "\n🎮 Checking stimulus controllers:"
+controller_dir = "app/javascript/controllers"
+if Dir.exist?(controller_dir)
+  controllers = Dir.glob("#{controller_dir}/*_controller.js")
+  puts "✅ Found #{controllers.size} stimulus controllers:"
+  controllers.each { |f| puts "  - #{File.basename(f)}" }
+else
+  puts "❌ Controllers directory not found"
+end
+
+puts "\n🔧 Recommendations:"
+puts "1. Run a full asset rebuild with: RAILS_ENV=production ./bin/build-assets"
+puts "2. Check that your deployment sets RAILS_SERVE_STATIC_FILES=true"
+puts "3. Commit changes and redeploy to apply production configuration fixes"
+puts "4. Monitor Cloud Run logs for asset 404 errors"
+
+puts "\n✅ Asset debugging completed!"

@@ -35,10 +35,14 @@ COPY . .
 # Precompile bootsnap code for faster boot times
 RUN bundle exec bootsnap precompile app/ lib/
 
+# Configure importmap and stimulus for production
 # Pin d3 library for importmap (if not already pinned)
 RUN if ! grep -q 'pin "d3"' config/importmap.rb; then \
         ./bin/importmap pin d3; \
     fi
+
+# Ensure importmap is properly configured
+# (local assets are automatically pinned via pin_all_from in importmap.rb)
 
 # Update stimulus manifest
 RUN ./bin/rails stimulus:manifest:update || true
