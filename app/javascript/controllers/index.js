@@ -4,26 +4,6 @@
 
 import { application } from "controllers/application"
 
-import CesiumController from "controllers/cesium_controller"
-application.register("cesium", CesiumController)
-
-import CesiumImpactController from "controllers/cesium_impact_controller"
-application.register("cesium-impact", CesiumImpactController)
-
-import EarthController from "controllers/earth_controller"
-application.register("earth", EarthController)
-
-import HelloController from "controllers/hello_controller"
-application.register("hello", HelloController)
-
-import ImpactController from "controllers/impact_controller"
-application.register("impact", ImpactController)
-
-import NeoBrowserController from "controllers/neo_browser_controller"
-application.register("neo-browser", NeoBrowserController)
-
-import NeoSelectorController from "controllers/neo_selector_controller"
-application.register("neo-selector", NeoSelectorController)
-
-import SidebarController from "./sidebar_controller"
-application.register("sidebar", SidebarController)
+// Eager load all controllers defined in the import map under controllers
+import { eagerLoadControllersFrom } from "@hotwired/stimulus-loading"
+eagerLoadControllersFrom("controllers", application)
