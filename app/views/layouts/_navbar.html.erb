@@ -2,10 +2,11 @@
 <nav class="nav" role="navigation" aria-label="Main">
   <div class="nav__inner">
     <!-- Brand / Home -->
+    <div>
     <%= link_to root_path, class: "brand-link", "aria-label": "Back to Home" do %>
-      🌍 <span class="brand-text">Meteor Madness</span>
+      ☄️ <span class="brand-text">Meteor Madness</span>
     <% end %>
-
+    </div>
 
     <!-- Language selector -->
     <div class="lang-switcher">
@@ -15,8 +16,6 @@
             data: { base: url_for(locale: "LOCALE") },
             onchange: "location.href = this.dataset.base.replace('LOCALE', this.value)",
             class: "lang-select" %>
-
     </div>
-
   </div>
 </nav>

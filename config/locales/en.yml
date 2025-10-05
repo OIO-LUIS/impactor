@@ -29,7 +29,7 @@
 en:
   app:
     language: "Language"
-    footer: "Astro kitties"
+    footer: "Astromichis"
 
   home:
     hero:
@@ -59,6 +59,66 @@ en:
         desc: "Key concepts: orbital elements, impact energy, and the NASA/USGS datasets behind the tool."
         cta: "Coming soon"
         aria_open: "Open Learn & Explore (coming soon)"
+
+  sidebar:
+    panels_title: "Panels"
+    inputs:
+      btn_title: "Impact Parameters"
+      panel_title: "Impact Parameters"
+      badge_html: "Physics Engine v%{version}"
+      neo_source: "NEO Data Source"
+      neo_browse: "🔍 Browse NASA NEOs"
+      approach_date: "Approach Date:"
+      miss_distance: "Miss Distance:"
+      orbit_heading: "🛰️ Keplerian Orbital Elements"
+      e: "Eccentricity (e):"
+      a: "Semi-major axis (a):"
+      i: "Inclination (i):"
+      node: "Asc. Node (Ω):"
+      arg_peri: "Arg. Perihelion (ω):"
+      M: "Mean Anomaly (M):"
+      diameter: "Diameter"
+      density: "Density"
+      velocity: "Velocity"
+      impact_angle: "Impact Angle"
+      strength: "Material Strength"
+      azimuth: "Approach Azimuth"
+      latitude: "Latitude"
+      longitude: "Longitude"
+      mitigation: "Mitigation"
+      mitigation_opts:
+        none: "No Mitigation"
+        deflection: "Kinetic Deflection"
+        ablation: "Laser Ablation"
+        nuclear: "Nuclear Device"
+      run: "Run Simulation"
+      units:
+        m: "m"
+        kgm3: "kg/m³"
+        kms: "km/s"
+        deg: "°"
+        deg_from_n: "° from N"
+        dash: "—"
+    results:
+      btn_title: "Impact Analysis"
+      panel_title: "Impact Analysis"
+      awaiting: "Awaiting"
+      primary_effects: "Primary Effects"
+      impact_mode: "Impact Mode"
+      energy_released: "Energy Released"
+      crater_diameter: "Crater Diameter"
+      damage_zones: "Damage Zones"
+      vaporization: "Vaporization"
+      thermal: "Thermal"
+      blast: "Blast"
+      tsunami: "Tsunami"
+      legend:
+        total: "Total Destruction"
+        severe: "Severe Damage"
+        major: "Major Damage"
+        moderate: "Moderate"
+        thermal: "Thermal"
+        tsunami: "Tsunami"
 
   game:
     title: "Mitigation Quiz"

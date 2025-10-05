@@ -1,0 +1,287 @@
+<div data-controller="sidebar" data-sidebar-open-value="false" class="sidebar-wrapper">
+  <button
+    type="button"
+    class="hamburger"
+    aria-label="Toggle sidebar"
+    aria-controls="appSidebar"
+    aria-expanded="false"
+    data-sidebar-target="toggle"
+    data-action="click->sidebar#toggle">
+    <span class="hamburger-box">
+      <span class="hamburger-line"></span>
+      <span class="hamburger-line"></span>
+      <span class="hamburger-line"></span>
+    </span>
+  </button>
+
+  <div
+    class="sidebar-backdrop"
+    aria-hidden="true"
+    data-sidebar-target="backdrop"
+    data-action="click->sidebar#close"></div>
+
+  <aside
+    id="appSidebar"
+    class="sidebar"
+    aria-hidden="true"
+    tabindex="-1"
+    role="complementary"
+    aria-labelledby="sidebar-title"
+    data-sidebar-target="sidebar">
+
+    <div class="panel">
+      <div class="panel-header" style="margin-bottom:.6rem;">
+        <h2 class="panel-title" id="sidebar-title"><%= t('sidebar.panels_title') %></h2>
+      </div>
+
+      <button
+        type="button"
+        class="accordion-header"
+        data-action="click->sidebar#toggleSection"
+        data-key="inputs"
+        aria-controls="inputs-content"
+        aria-expanded="false">
+        <span><%= t('sidebar.inputs.btn_title') %></span>
+        <span class="accordion-chev" data-sidebar-target="chevron" data-key="inputs">▼</span>
+      </button>
+
+      <div
+        id="inputs-content"
+        class="accordion-content"
+        data-sidebar-target="section"
+        data-key="inputs"
+        data-open="false">
+
+        <div class="panel" style="margin-top:.75rem;">
+          <div class="panel-header">
+            <h2 class="panel-title"><%= t('sidebar.inputs.panel_title') %></h2>
+            <span class="panel-badge"><%= t('sidebar.inputs.badge_html', version: '2.0') %></span>
+          </div>
+
+          <form
+            data-cesium-impact-target="form"
+            data-action="submit->cesium-impact#simulate"
+            data-turbo="false">
+
+            <!-- NEO Browser Toggle -->
+            <div class="form-group">
+              <label><%= t('sidebar.inputs.neo_source') %></label>
+              <button type="button"
+                      class="btn btn-secondary"
+                      data-action="click->neo-browser#toggle"
+                      style="width: 100%;">
+                <%= t('sidebar.inputs.neo_browse') %>
+              </button>
+            </div>
+
+            <!-- NEO Info Display -->
+            <div id="neo-info-display" style="display: none; padding: 0.8rem; background: rgba(147,180,216,0.1); border-radius: 10px; margin-bottom: 1rem;">
+              <div style="display: flex; justify-content: space-between; align-items: center; margin-bottom: 0.5rem;">
+                <span style="font-size: 0.9rem; font-weight: 600; color: var(--lav);" id="neo-name-display"><%= t('sidebar.inputs.units.dash') %></span>
+                <span style="font-size: 0.75rem; color: rgba(207,214,255,0.7);" id="neo-id-display"><%= t('sidebar.inputs.units.dash') %></span>
+              </div>
+              <div style="display: grid; grid-template-columns: 1fr 1fr; gap: 0.5rem; font-size: 0.8rem;">
+                <div>
+                  <span style="color: rgba(207,214,255,0.6);"><%= t('sidebar.inputs.approach_date') %></span>
+                  <span style="color: #fff; font-weight: 500; margin-left: 0.3rem;" id="neo-date-display"><%= t('sidebar.inputs.units.dash') %></span>
+                </div>
+                <div>
+                  <span style="color: rgba(207,214,255,0.6);"><%= t('sidebar.inputs.miss_distance') %></span>
+                  <span style="color: #fff; font-weight: 500; margin-left: 0.3rem;" id="neo-distance-display"><%= t('sidebar.inputs.units.dash') %></span>
+                </div>
+              </div>
+            </div>
+
+            <!-- Orbital Elements Display -->
+            <div id="orbital-elements-display" style="display: none; padding: 0.8rem; background: rgba(179,157,219,0.1); border: 1px solid rgba(179,157,219,0.2); border-radius: 10px; margin-bottom: 1rem;">
+              <div style="font-size: 0.85rem; font-weight: 600; color: var(--lav); margin-bottom: 0.6rem; text-transform: uppercase; letter-spacing: 0.5px;">
+                <%= t('sidebar.inputs.orbit_heading') %>
+              </div>
+              <div style="display: grid; grid-template-columns: 1fr 1fr; gap: 0.4rem; font-size: 0.75rem;">
+                <div><span style="color: rgba(207,214,255,0.6);"><%= t('sidebar.inputs.e') %></span> <span style="color: #fff; font-weight: 500; margin-left: 0.3rem;" id="orbital-eccentricity"><%= t('sidebar.inputs.units.dash') %></span></div>
+                <div><span style="color: rgba(207,214,255,0.6);"><%= t('sidebar.inputs.a') %></span> <span style="color: #fff; font-weight: 500; margin-left: 0.3rem;" id="orbital-semi-major-axis"><%= t('sidebar.inputs.units.dash') %></span></div>
+                <div><span style="color: rgba(207,214,255,0.6);"><%= t('sidebar.inputs.i') %></span> <span style="color: #fff; font-weight: 500; margin-left: 0.3rem;" id="orbital-inclination"><%= t('sidebar.inputs.units.dash') %></span></div>
+                <div><span style="color: rgba(207,214,255,0.6);"><%= t('sidebar.inputs.node') %></span> <span style="color: #fff; font-weight: 500; margin-left: 0.3rem;" id="orbital-ascending-node"><%= t('sidebar.inputs.units.dash') %></span></div>
+                <div><span style="color: rgba(207,214,255,0.6);"><%= t('sidebar.inputs.arg_peri') %></span> <span style="color: #fff; font-weight: 500; margin-left: 0.3rem;" id="orbital-arg-perihelion"><%= t('sidebar.inputs.units.dash') %></span></div>
+                <div><span style="color: rgba(207,214,255,0.6);"><%= t('sidebar.inputs.M') %></span> <span style="color: #fff; font-weight: 500; margin-left: 0.3rem;" id="orbital-mean-anomaly"><%= t('sidebar.inputs.units.dash') %></span></div>
+              </div>
+              <input type="hidden" id="orbital-data" name="orbital_data" data-cesium-impact-target="orbitalInput"/>
+            </div>
+
+            <div class="form-group">
+              <label for="diameter_m"><%= t('sidebar.inputs.diameter') %></label>
+              <div class="input-wrapper">
+                <input id="diameter_m" name="diameter_m" type="number" step="0.01" placeholder="0" data-cesium-impact-target="diameterInput"/>
+                <span class="input-unit"><%= t('sidebar.inputs.units.m') %></span>
+              </div>
+            </div>
+
+            <div class="form-group">
+              <label for="density_kg_m3"><%= t('sidebar.inputs.density') %></label>
+              <div class="input-wrapper">
+                <input id="density_kg_m3" name="density_kg_m3" type="number" placeholder="0" data-cesium-impact-target="densityInput"/>
+                <span class="input-unit"><%= t('sidebar.inputs.units.kgm3') %></span>
+              </div>
+            </div>
+
+            <div class="form-group">
+              <label for="velocity_kms"><%= t('sidebar.inputs.velocity') %></label>
+              <div class="input-wrapper">
+                <input id="velocity_kms" name="velocity_kms" type="number" step="0.01" placeholder="0" data-cesium-impact-target="velocityInput"/>
+                <span class="input-unit"><%= t('sidebar.inputs.units.kms') %></span>
+              </div>
+            </div>
+
+            <div class="form-group">
+              <label for="impact_angle_deg"><%= t('sidebar.inputs.impact_angle') %></label>
+              <div class="input-wrapper">
+                <input id="impact_angle_deg" name="impact_angle_deg" type="number" value="45" data-cesium-impact-target="angleInput"/>
+                <span class="input-unit"><%= t('sidebar.inputs.units.deg') %></span>
+              </div>
+            </div>
+
+            <div class="form-group">
+              <label for="strength_mpa"><%= t('sidebar.inputs.strength') %></label>
+              <div class="input-wrapper">
+                <input id="strength_mpa" name="strength_mpa" type="number" placeholder="0" data-cesium-impact-target="strengthInput"/>
+                <span class="input-unit">MPa</span>
+              </div>
+            </div>
+
+            <div class="form-group">
+              <label for="azimuth_deg"><%= t('sidebar.inputs.azimuth') %></label>
+              <div class="input-wrapper">
+                <input id="azimuth_deg" name="azimuth_deg" type="number" value="45" data-cesium-impact-target="azimuthInput"/>
+                <span class="input-unit"><%= t('sidebar.inputs.units.deg_from_n') %></span>
+              </div>
+            </div>
+
+            <!-- Impact Location -->
+            <div class="form-group">
+              <label for="lat"><%= t('sidebar.inputs.latitude') %></label>
+              <input id="lat" name="lat" type="number" value="10.0000" data-cesium-impact-target="latInput"/>
+            </div>
+
+            <div class="form-group">
+              <label for="lng"><%= t('sidebar.inputs.longitude') %></label>
+              <input id="lng" name="lng" type="number" value="-84.0000" data-cesium-impact-target="lngInput"/>
+            </div>
+
+            <!-- Mitigation Options -->
+            <div class="form-group">
+              <label for="mitigation"><%= t('sidebar.inputs.mitigation') %></label>
+              <select id="mitigation" name="mitigation_type">
+                <option value="none"><%= t('sidebar.inputs.mitigation_opts.none') %></option>
+                <option value="deflection"><%= t('sidebar.inputs.mitigation_opts.deflection') %></option>
+                <option value="ablation"><%= t('sidebar.inputs.mitigation_opts.ablation') %></option>
+                <option value="nuclear"><%= t('sidebar.inputs.mitigation_opts.nuclear') %></option>
+              </select>
+            </div>
+
+            <button type="submit" class="btn btn-primary" data-cesium-impact-target="simulateBtn">
+              <%= t('sidebar.inputs.run') %>
+            </button>
+          </form>
+        </div>
+      </div>
+    </div>
+
+    <div class="panel" style="margin-top:1rem;">
+      <button
+        type="button"
+        class="accordion-header"
+        data-action="click->sidebar#toggleSection"
+        data-key="results"
+        aria-controls="results-content"
+        aria-expanded="false">
+        <span><%= t('sidebar.results.btn_title') %></span>
+        <span class="accordion-chev" data-sidebar-target="chevron" data-key="results">▼</span>
+      </button>
+
+      <div
+        id="results-content"
+        class="accordion-content"
+        data-sidebar-target="section"
+        data-key="results"
+        data-open="false">
+        <div class="panel" style="margin-top:.75rem;">
+          <div class="panel-header">
+            <h2 class="panel-title"><%= t('sidebar.results.panel_title') %></h2>
+            <span class="panel-badge" data-cesium-impact-target="threatLevel"><%= t('sidebar.results.awaiting') %></span>
+          </div>
+
+          <div data-cesium-impact-target="metrics">
+            <div class="metric-group">
+              <div class="metric-group-title"><%= t('sidebar.results.primary_effects') %></div>
+              <div class="metric-item">
+                <span class="metric-label"><%= t('sidebar.results.impact_mode') %></span>
+                <span class="metric-value" data-cesium-impact-target="modeValue"><%= t('sidebar.inputs.units.dash') %></span>
+              </div>
+              <div class="metric-item">
+                <span class="metric-label"><%= t('sidebar.results.energy_released') %></span>
+                <span class="metric-value" data-cesium-impact-target="energyValue"><%= t('sidebar.inputs.units.dash') %></span>
+              </div>
+              <div class="metric-item">
+                <span class="metric-label"><%= t('sidebar.results.crater_diameter') %></span>
+                <span class="metric-value" data-cesium-impact-target="craterValue"><%= t('sidebar.inputs.units.dash') %></span>
+              </div>
+            </div>
+
+            <div class="metric-group">
+              <div class="metric-group-title"><%= t('sidebar.results.damage_zones') %></div>
+              <div class="damage-grid">
+                <div class="damage-card">
+                  <div class="damage-icon">💥</div>
+                  <div class="damage-label"><%= t('sidebar.results.vaporization') %></div>
+                  <div class="damage-value" data-cesium-impact-target="vaporizationValue"><%= t('sidebar.inputs.units.dash') %></div>
+                </div>
+                <div class="damage-card">
+                  <div class="damage-icon">🔥</div>
+                  <div class="damage-label"><%= t('sidebar.results.thermal') %></div>
+                  <div class="damage-value" data-cesium-impact-target="thermalValue"><%= t('sidebar.inputs.units.dash') %></div>
+                </div>
+                <div class="damage-card">
+                  <div class="damage-icon">💨</div>
+                  <div class="damage-label"><%= t('sidebar.results.blast') %></div>
+                  <div class="damage-value" data-cesium-impact-target="blastValue"><%= t('sidebar.inputs.units.dash') %></div>
+                </div>
+                <div class="damage-card">
+                  <div class="damage-icon">🌊</div>
+                  <div class="damage-label"><%= t('sidebar.results.tsunami') %></div>
+                  <div class="damage-value" data-cesium-impact-target="tsunamiValue"><%= t('sidebar.inputs.units.dash') %></div>
+                </div>
+              </div>
+            </div>
+          </div>
+
+          <div class="legend">
+            <div class="legend-item">
+              <span class="legend-color" style="background:var(--critical)"></span>
+              <span><%= t('sidebar.results.legend.total') %></span>
+            </div>
+            <div class="legend-item">
+              <span class="legend-color" style="background:var(--severe)"></span>
+              <span><%= t('sidebar.results.legend.severe') %></span>
+            </div>
+            <div class="legend-item">
+              <span class="legend-color" style="background:var(--major)"></span>
+              <span><%= t('sidebar.results.legend.major') %></span>
+            </div>
+            <div class="legend-item">
+              <span class="legend-color" style="background:var(--moderate)"></span>
+              <span><%= t('sidebar.results.legend.moderate') %></span>
+            </div>
+            <div class="legend-item">
+              <span class="legend-color" style="background:var(--thermal)"></span>
+              <span><%= t('sidebar.results.legend.thermal') %></span>
+            </div>
+            <div class="legend-item">
+              <span class="legend-color" style="background:var(--tsunami)"></span>
+              <span><%= t('sidebar.results.legend.tsunami') %></span>
+            </div>
+          </div>
+        </div>
+      </div>
+    </div>
+  </aside>
+</div>

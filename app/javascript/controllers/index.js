@@ -24,3 +24,6 @@ application.register("neo-browser", NeoBrowserController)
 
 import NeoSelectorController from "controllers/neo_selector_controller"
 application.register("neo-selector", NeoSelectorController)
+
+import SidebarController from "./sidebar_controller"
+application.register("sidebar", SidebarController)

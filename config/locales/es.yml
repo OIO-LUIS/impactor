@@ -2,7 +2,7 @@
 es:
   app:
     language: "Idioma"
-    footer: "Astro michis"
+    footer: "Astromichis"
 
   home:
     hero:
@@ -32,6 +32,66 @@ es:
         desc: "Conceptos clave: elementos orbitales, energía de impacto y los conjuntos de datos de NASA y USGS detrás de la herramienta."
         cta: "Próximamente"
         aria_open: "Abrir Aprender y Explorar (próximamente)"
+
+  sidebar:
+    panels_title: "Paneles"
+    inputs:
+      btn_title: "Parámetros de Impacto"
+      panel_title: "Parámetros de Impacto"
+      badge_html: "Motor de Física v%{version}"
+      neo_source: "Fuente de datos NEO"
+      neo_browse: "🔍 Explorar NEOs de la NASA"
+      approach_date: "Fecha de aproximación:"
+      miss_distance: "Distancia de paso:"
+      orbit_heading: "🛰️ Elementos orbitales keplerianos"
+      e: "Excentricidad (e):"
+      a: "Semieje mayor (a):"
+      i: "Inclinación (i):"
+      node: "Nodo ascendente (Ω):"
+      arg_peri: "Arg. del perihelio (ω):"
+      M: "Anomalía media (M):"
+      diameter: "Diámetro"
+      density: "Densidad"
+      velocity: "Velocidad"
+      impact_angle: "Ángulo de impacto"
+      strength: "Resistencia del material"
+      azimuth: "Azimut de aproximación"
+      latitude: "Latitud"
+      longitude: "Longitud"
+      mitigation: "Mitigación"
+      mitigation_opts:
+        none: "Sin mitigación"
+        deflection: "Desviación cinética"
+        ablation: "Ablación láser"
+        nuclear: "Dispositivo nuclear"
+      run: "Ejecutar simulación"
+      units:
+        m: "m"
+        kgm3: "kg/m³"
+        kms: "km/s"
+        deg: "°"
+        deg_from_n: "° desde N"
+        dash: "—"
+    results:
+      btn_title: "Análisis de Impacto"
+      panel_title: "Análisis de Impacto"
+      awaiting: "En espera"
+      primary_effects: "Efectos primarios"
+      impact_mode: "Modo de impacto"
+      energy_released: "Energía liberada"
+      crater_diameter: "Diámetro del cráter"
+      damage_zones: "Zonas de daño"
+      vaporization: "Vaporización"
+      thermal: "Térmico"
+      blast: "Onda de choque"
+      tsunami: "Tsunami"
+      legend:
+        total: "Destrucción total"
+        severe: "Daño severo"
+        major: "Daño mayor"
+        moderate: "Moderado"
+        thermal: "Térmico"
+        tsunami: "Tsunami"
 
   game:
     title: "Quiz de Mitigación"
