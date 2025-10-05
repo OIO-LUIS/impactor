@@ -18,7 +18,7 @@
 // ============================================================================
 
 import * as THREE from "three"
-import { PlanetManager } from "./planet_manager.js"
+import { PlanetManager } from "controllers/planet_manager"
 
 export class HeliocentricViewManager {
   constructor(scene, camera, controls, AU, SCENE_SCALE, SUN_R_VISUAL, EARTH_R_VISUAL, orbitalMech = null) {
@@ -221,7 +221,7 @@ export class HeliocentricViewManager {
     const glowMaterial = new THREE.MeshBasicMaterial({
       color: 0xFFD700,
       transparent: true,
-      opacity: 0.3
+      opacity: 0.01
     })
 
     this.sunGlow = new THREE.Mesh(glowGeometry, glowMaterial)

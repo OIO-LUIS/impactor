@@ -58,14 +58,18 @@ import { feature } from "topojson-client"
 // ============================================================================
 // MODULAR ARCHITECTURE - Import specialized visualization modules
 // ============================================================================
-import { ThreeJSUtils } from "../services/impact_visualization/three_js_utils.js"
-import { OrbitalMechanicsCalculator } from "../services/impact_visualization/orbital_mechanics_calculator.js"
-import { HeliocentricViewManager } from "../services/impact_visualization/heliocentric_view_manager.js"
-import { GeocentricViewManager } from "../services/impact_visualization/geocentric_view_manager.js"
-import { ImpactVisualizer } from "../services/impact_visualization/impact_visualizer.js"
-import { TimelineController } from "../services/impact_visualization/timeline_controller.js"
-import { ViewSwitchManager } from "../services/impact_visualization/view_switch_manager.js"
-import { ViewState } from "../services/impact_visualization/view_state.js"
+// ============================================================================
+// MODULAR ARCHITECTURE - Import specialized visualization modules
+// ============================================================================
+import { ThreeJSUtils } from "controllers/three_js_utils"
+import { OrbitalMechanicsCalculator } from "controllers/orbital_mechanics_calculator"
+import { HeliocentricViewManager } from "controllers/heliocentric_view_manager"
+import { GeocentricViewManager } from "controllers/geocentric_view_manager"
+import { ImpactVisualizer } from "controllers/impact_visualizer"
+import { TimelineController } from "controllers/timeline_controller"
+import { ViewSwitchManager } from "controllers/view_switch_manager"
+import { ViewState } from "controllers/view_state"
+
 
 export default class extends Controller {
   // ============================================================================

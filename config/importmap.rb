@@ -5,8 +5,6 @@ pin "@hotwired/turbo-rails", to: "turbo.min.js"
 pin "@hotwired/stimulus", to: "stimulus.min.js"
 pin "@hotwired/stimulus-loading", to: "stimulus-loading.js"
 pin_all_from "app/javascript/controllers", under: "controllers"
-pin_all_from "app/javascript/services", under: "services"
-pin_all_from "app/javascript/services/impact_visualization", under: "services/impact_visualization"
 
 pin "three", to: "https://cdn.jsdelivr.net/npm/three@0.161.0/build/three.module.js"
 
