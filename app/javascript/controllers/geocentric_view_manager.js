@@ -30,11 +30,13 @@ export class GeocentricViewManager {
    * @param {THREE.Scene} scene - Three.js scene to add objects to
    * @param {number} earthRadius - Earth radius in meters
    * @param {Function} latLngToVector3 - Function to convert lat/lng to 3D coordinates
+   * @param {Object} assetUrls - URLs for asset files (stars, milky way background, etc.)
    */
-  constructor(scene, earthRadius, latLngToVector3) {
+  constructor(scene, earthRadius, latLngToVector3, assetUrls = {}) {
     this.scene = scene
     this.EARTH_R = earthRadius
     this.latLngToVector3 = latLngToVector3
+    this.assetUrls = assetUrls
 
     // Tracked objects for cleanup
     this.earthGroup = null
@@ -59,7 +61,8 @@ export class GeocentricViewManager {
 
     // Load the Milky Way texture (same as heliocentric view)
     const textureLoader = new THREE.TextureLoader()
-    const milkyWayTexture = textureLoader.load('/assets/stars.jpg',
+    const textureUrl = this.assetUrls.stars || '/assets/stars.jpg'
+    const milkyWayTexture = textureLoader.load(textureUrl,
       (texture) => {
         console.log("  ✅ Milky Way texture loaded")
         texture.wrapS = THREE.RepeatWrapping

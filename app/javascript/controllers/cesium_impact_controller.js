@@ -112,7 +112,27 @@ export default class extends Controller {
   static values = {
     particleUrl: String,
     smokeUrl: String,
-    worldUrl: String
+    worldUrl: String,
+    // Planet textures
+    mercuryUrl: String,
+    venusUrl: String,
+    earthUrl: String,
+    marsUrl: String,
+    jupiterUrl: String,
+    saturnUrl: String,
+    saturnRingUrl: String,
+    uranusUrl: String,
+    neptuneUrl: String,
+    sunUrl: String,
+    // Backgrounds
+    starsUrl: String,
+    milkyUrl: String,
+    // Earth details
+    earthDayUrl: String,
+    earthNightUrl: String,
+    earthCloudsUrl: String,
+    earthNormalUrl: String,
+    earthSpecUrl: String
   }
 
   // ============================================================================
@@ -434,14 +454,32 @@ export default class extends Controller {
       this.SCENE_SCALE,
       this.SUN_R_VISUAL,
       this.EARTH_R_VISUAL,
-      this.orbitalMech
+      this.orbitalMech,
+      {
+        mercury: this.mercuryUrlValue,
+        venus: this.venusUrlValue,
+        earth: this.earthUrlValue,
+        mars: this.marsUrlValue,
+        jupiter: this.jupiterUrlValue,
+        saturn: this.saturnUrlValue,
+        saturnRing: this.saturnRingUrlValue,
+        uranus: this.uranusUrlValue,
+        neptune: this.neptuneUrlValue,
+        sun: this.sunUrlValue,
+        stars: this.starsUrlValue,
+        milky: this.milkyUrlValue
+      }
     )
 
     // Geocentric view manager
     this.geocentricView = new GeocentricViewManager(
       this.scene,
       this.EARTH_R,
-      (lat, lng, radius) => ThreeJSUtils.latLngToVector3(lat, lng, radius)
+      (lat, lng, radius) => ThreeJSUtils.latLngToVector3(lat, lng, radius),
+      {
+        stars: this.starsUrlValue,
+        milky: this.milkyUrlValue
+      }
     )
 
     // Impact visualizer

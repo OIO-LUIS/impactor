@@ -21,7 +21,7 @@ import * as THREE from "three"
 import { PlanetManager } from "controllers/planet_manager"
 
 export class HeliocentricViewManager {
-  constructor(scene, camera, controls, AU, SCENE_SCALE, SUN_R_VISUAL, EARTH_R_VISUAL, orbitalMech = null) {
+  constructor(scene, camera, controls, AU, SCENE_SCALE, SUN_R_VISUAL, EARTH_R_VISUAL, orbitalMech = null, assetUrls = {}) {
     this.scene = scene
     this.camera = camera
     this.controls = controls
@@ -30,9 +30,10 @@ export class HeliocentricViewManager {
     this.SUN_R_VISUAL = SUN_R_VISUAL
     this.EARTH_R_VISUAL = EARTH_R_VISUAL
     this.orbitalMech = orbitalMech
+    this.assetUrls = assetUrls
 
-    // Initialize PlanetManager for all planets
-    this.planetManager = new PlanetManager(scene, AU, SCENE_SCALE)
+    // Initialize PlanetManager for all planets with asset URLs
+    this.planetManager = new PlanetManager(scene, AU, SCENE_SCALE, assetUrls)
 
     // Track created objects for cleanup
     this.starfield = null
@@ -146,7 +147,8 @@ export class HeliocentricViewManager {
 
     // Load the Milky Way texture
     const textureLoader = new THREE.TextureLoader()
-    const milkyWayTexture = textureLoader.load('/assets/stars.jpg',
+    const textureUrl = this.assetUrls.stars || '/assets/stars.jpg'
+    const milkyWayTexture = textureLoader.load(textureUrl,
       (texture) => {
         console.log("  ✅ Milky Way texture loaded")
         texture.wrapS = THREE.RepeatWrapping
@@ -189,7 +191,7 @@ export class HeliocentricViewManager {
 
     // Load Sun texture
     const textureLoader = new THREE.TextureLoader()
-    const sunTexture = textureLoader.load('/assets/sun.jpg',
+    const sunTexture = textureLoader.load(this.assetUrls.sun || '/assets/sun.jpg',
       (texture) => {
         console.log("  ✅ Sun texture loaded")
         texture.wrapS = THREE.RepeatWrapping
@@ -261,7 +263,7 @@ export class HeliocentricViewManager {
 
     // Load Earth texture
     const textureLoader = new THREE.TextureLoader()
-    const earthTexture = textureLoader.load('/assets/earth.jpg',
+    const earthTexture = textureLoader.load(this.assetUrls.earth || '/assets/earth.jpg',
       (texture) => {
         console.log("  ✅ Earth texture loaded")
         texture.minFilter = THREE.LinearMipMapLinearFilter

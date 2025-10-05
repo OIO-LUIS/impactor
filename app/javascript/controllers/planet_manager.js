@@ -18,10 +18,11 @@
 import * as THREE from "three"
 
 export class PlanetManager {
-  constructor(scene, AU, SCENE_SCALE) {
+  constructor(scene, AU, SCENE_SCALE, assetUrls = {}) {
     this.scene = scene
     this.AU = AU                    // 1 AU in km
     this.SCENE_SCALE = SCENE_SCALE  // Scene units per million km
+    this.assetUrls = assetUrls      // Asset URLs from Rails
     this.planets = {}               // Store planet meshes by name
     this.orbits = {}                // Store orbit lines by name
     this.labels = {}                // Store planet labels
@@ -35,7 +36,7 @@ export class PlanetManager {
         visual_scale: 0.01,  // Visible but small
         orbit_radius_au: 0.387,
         color: 0x8C8C8C,
-        texture: '/assets/mercury.jpg',
+        texture: this.assetUrls.mercury || '/assets/mercury.jpg',
         segments: 32
       },
       venus: {
@@ -44,7 +45,7 @@ export class PlanetManager {
         visual_scale: 0.02,  // Similar to Earth
         orbit_radius_au: 0.723,
         color: 0xFFC649,
-        texture: '/assets/venus.jpg',
+        texture: this.assetUrls.venus || '/assets/venus.jpg',
         segments: 32,
         atmosphere: true
       },
@@ -54,7 +55,7 @@ export class PlanetManager {
         visual_scale: 0.02,  // Reference size - more visible
         orbit_radius_au: 1.000,
         color: 0x2E7FFF,
-        texture: '/assets/earth.jpg',
+        texture: this.assetUrls.earth || '/assets/earth.jpg',
         segments: 64,
         atmosphere: true,
         clouds: true
@@ -65,7 +66,7 @@ export class PlanetManager {
         visual_scale: 0.015,  // Smaller than Earth but visible
         orbit_radius_au: 1.524,
         color: 0xCD5C5C,
-        texture: '/assets/mars.jpg',
+        texture: this.assetUrls.mars || '/assets/mars.jpg',
         segments: 32
       },
       jupiter: {
@@ -74,7 +75,7 @@ export class PlanetManager {
         visual_scale: 0.08,  // Clearly the largest
         orbit_radius_au: 5.203,
         color: 0xC88B3A,
-        texture: '/assets/jupiter.jpg',
+        texture: this.assetUrls.jupiter || '/assets/jupiter.jpg',
         segments: 64
       },
       saturn: {
@@ -83,12 +84,12 @@ export class PlanetManager {
         visual_scale: 0.07,  // Large with rings
         orbit_radius_au: 9.537,
         color: 0xFAD5A5,
-        texture: '/assets/saturn.jpg',
+        texture: this.assetUrls.saturn || '/assets/saturn.jpg',
         segments: 64,
         rings: {
           inner_radius: 1.2,
           outer_radius: 2.3,
-          texture: '/assets/saturn_ring.png'
+          texture: this.assetUrls.saturnRing || '/assets/saturn_ring.png'
         }
       },
       uranus: {
@@ -97,7 +98,7 @@ export class PlanetManager {
         visual_scale: 0.04,  // Ice giant - medium size
         orbit_radius_au: 19.191,
         color: 0x4FD0E0,
-        texture: '/assets/uranus.jpg',
+        texture: this.assetUrls.uranus || '/assets/uranus.jpg',
         segments: 48,
         axial_tilt: 98
       },
@@ -107,7 +108,7 @@ export class PlanetManager {
         visual_scale: 0.04,  // Similar to Uranus
         orbit_radius_au: 30.069,
         color: 0x4B70DD,
-        texture: '/assets/neptune.jpg',
+        texture: this.assetUrls.neptune || '/assets/neptune.jpg',
         segments: 48
       }
     }
