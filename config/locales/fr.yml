@@ -93,6 +93,10 @@ fr:
           thermal: "Thermique"
           tsunami: "Tsunami"
 
+  settings:
+      links:
+        game: "Jeu de mitigation"
+        info: "Apprendre & explorer"
   game:
     title: "Quiz de Mitigation"
     subtitle: "Répondez à 10 questions sous pression. Apprenez la vraie science derrière les impacts et les défenses contre les astéroïdes."

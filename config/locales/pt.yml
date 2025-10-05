@@ -91,6 +91,10 @@ pt:
           moderate: "Moderado"
           thermal: "Térmico"
           tsunami: "Tsunami"
+  settings:
+    links:
+      game: "Jogo de mitigação"
+      info: "Aprender e explorar"
   game:
     title: "Quiz de Mitigação"
     subtitle: "Responda 10 perguntas sob pressão. Aprenda ciência real sobre impactos e defesas contra asteroides."

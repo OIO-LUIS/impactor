@@ -120,6 +120,10 @@ en:
         thermal: "Thermal"
         tsunami: "Tsunami"
 
+  settings:
+      links:
+        game: "Mitigation Game"
+        info: "Learn & Explore"
   game:
     title: "Mitigation Quiz"
     subtitle: "Answer 10 questions under pressure. Learn real science behind asteroid impacts & defenses."
