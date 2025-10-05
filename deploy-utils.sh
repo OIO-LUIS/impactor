@@ -203,3 +203,41 @@ case "${1:-help}" in
         show_help
         ;;
 esac
+# Test custom domain (added by setup-domain.sh)
+test_custom_domain() {
+    local domain="$1"
+    if [ -z "$domain" ]; then
+        echo "Usage: ./deploy-utils.sh test-domain <domain>"
+        return 1
+    fi
+    
+    log_info "Testing custom domain: $domain"
+    
+    # Check DNS
+    if nslookup "$domain" >/dev/null 2>&1; then
+        log_success "DNS resolution working"
+    else
+        log_error "DNS resolution failed"
+        return 1
+    fi
+    
+    # Check HTTP/HTTPS
+    if curl -sf "https://$domain" >/dev/null; then
+        log_success "HTTPS access working"
+    else
+        log_warning "HTTPS access failed or not ready"
+    fi
+    
+    # Check certificate
+    if openssl s_client -connect "$domain:443" -servername "$domain" < /dev/null 2>/dev/null | openssl x509 -noout >/dev/null 2>&1; then
+        log_success "SSL certificate valid"
+    else
+        log_warning "SSL certificate not ready or invalid"
+    fi
+}
+
+# Add test-domain command
+if [ "${1}" = "test-domain" ]; then
+    test_custom_domain "$2"
+    exit 0
+fi
