@@ -33,32 +33,15 @@ en:
 
   home:
     hero:
-      eyebrow: "NASA Space Apps 2025"
-      title_html: "Explore impacts <span class=\"gradient-text\">&amp; defend Earth</span>"
-      subtitle: "Simulate scenarios, estimate consequences, and test mitigation strategies using real NASA & USGS data."
-    cards:
-      aria: "Main actions"
-      sim:
-        pill: "SIM"
-        status: "Live"
-        title: "Impact Simulation"
-        desc: "Set size, velocity, and impact point. Get energy, crater size, and shockwave rings."
-        cta: "Start →"
-        aria_open: "Open Impact Simulation"
-      mit:
-        pill: "MIT"
-        status: "Game"
-        title: "Mitigation (Gaming)"
-        desc: "Apply along-track Δv with lead time and see if you can deflect Impactor-2025."
-        cta: "Play →"
-        aria_open: "Open Mitigation/Gaming"
-      learn:
-        pill: "LEARN"
-        status: "Soon"
-        title: "Learn & Explore"
-        desc: "Key concepts: orbital elements, impact energy, and the NASA/USGS datasets behind the tool."
-        cta: "Coming soon"
-        aria_open: "Open Learn & Explore (coming soon)"
+      badge: "NASA Space Apps Challenge 2025"
+      badge_aria: "Event badge"
+      title_line1: "%{count_short} Near-Earth"
+      title_line2: "Asteroids Monitored"
+      subtitle_html: "Simulate asteroid impacts. Calculate damage zones. Explore mitigation strategies.<br>Built with real NASA & USGS data and physics-based impact modeling."
+      meta: "Heliocentric orbital mechanics • Physics-based impact modeling • Interactive 3D visualization"
+    cta:
+      text: "Explore Impact Scenarios"
+      aria: "Open the impact simulation"
 
   sidebar:
     panels_title: "Panels"
@@ -124,6 +107,31 @@ en:
       links:
         game: "Mitigation Game"
         info: "Learn & Explore"
+  
+  tutorial:
+    title: "Quick Tour"
+    close_aria: "Close tutorial"
+    subtitle_html: "Basic controls to explore the scene:"
+    zoom:
+      title: "Zoom"
+    rotate:
+      title: "Rotate"
+    pan:
+      title: "Pan"
+    maybe_later: "Maybe later"
+    dont_show_again: "Don’t show again"
+    gestures:
+      desktop:
+        zoom_html: "Use the <b>mouse wheel</b> (or <kbd>Ctrl</kbd> + <kbd>+</kbd>/<kbd>-</kbd>)."
+        rotate_html: "Hold <b>left mouse</b> and drag."
+        rotate_mac_html: "Hold <b>left mouse</b> and drag (or one-finger drag on trackpad)."
+        pan_html: "Hold <b>right mouse</b> (or <kbd>Shift</kbd> + left) and drag."
+        pan_mac_html: "Two-finger drag on trackpad, or <kbd>Shift</kbd> + one-finger drag."
+      touch:
+        zoom_html: "Pinch with <b>two fingers</b> to zoom."
+        rotate_html: "Drag with <b>one finger</b> to rotate."
+        pan_html: "Drag with <b>two fingers</b> to pan."
+
   game:
     title: "Mitigation Quiz"
     subtitle: "Answer 10 questions under pressure. Learn real science behind asteroid impacts & defenses."
@@ -320,3 +328,89 @@ en:
         feedback:
           frag: "Material strength matters; stony bodies fragment more readily."
           default: "Composition influences entry behavior."
+  
+  info:
+    intro:
+      title: "What are asteroids?"
+      body_html: "Asteroids are small rocky or metallic bodies that orbit the Sun. Most live in the main belt between Mars and Jupiter, but some approach Earth's orbit and are called <b>Near-Earth Objects (NEOs)</b>."
+    sizes:
+      title: "Sizes & scale"
+      micro: "Dust & pebbles (< 1 cm): fully burn up in the atmosphere."
+      small: "Meters to tens of meters: can produce bright fireballs; some may airburst."
+      medium: "≈50–300 m: city to regional damage possible, depending on material and speed."
+      large: "> 300 m: rare, can cause severe regional to global effects."
+    composition:
+      summary_html: "<b>Composition matters:</b> stony, iron, and stony-iron types behave differently during entry."
+      stony: "Stony: more likely to fragment/airburst; lower strength on average."
+      iron: "Iron: stronger, deeper penetration; more likely to reach the ground."
+      stony_iron: "Stony-iron: mixed properties."
+    neo:
+      title: "NEOs & PHAs"
+      def_html: "NEOs are comets and asteroids that come within 1.3 AU of the Sun and can cross near Earth’s orbit. A subset are <b>Potentially Hazardous Asteroids (PHAs)</b>."
+      criteria_neo: "NEO: perihelion distance ≤ 1.3 AU."
+      criteria_pha: "PHA: minimum orbit intersection distance (MOID) ≤ 0.05 AU and magnitude (H) ≤ 22 (≈140 m)."
+    detection:
+      title: "How we find them"
+      surveys: "Wide-field surveys search the sky every night and flag moving objects."
+      followup: "Follow-up telescopes refine positions to improve orbit accuracy."
+      orbits: "Orbit determination predicts future approaches and impact probabilities."
+    effects:
+      title: "Impact effects"
+      tiny: "Tiny objects: harmless visual events (meteors, shooting stars)."
+      city: "City scale (~50–150 m): airbursts/blasts can break windows, injure people, and damage structures."
+      regional: "Regional (~150–500 m): severe blast/thermal effects; if ocean impact, tsunami potential."
+      global: "Global (>1 km): extremely rare; long-term climate effects possible."
+    cases:
+      title: "Known events"
+      chelyabinsk_html: "Chelyabinsk (2013, ~20 m): airburst over Russia; ~1,500 injuries mostly from broken glass."
+      tunguska_html: "Tunguska (1908, ~50–60 m): airburst flattened forest over ~2,000 km² in Siberia."
+      chicxulub_html: "Chicxulub (~66 Ma, ~10 km): linked to mass extinction; crater in Yucatán."
+    mitigation:
+      title: "Mitigation strategies"
+      kinetic: "Kinetic impactor: hit the asteroid to nudge its orbit (effective with years of lead time)."
+      ablation: "Laser/ablation: heat material so ejected gas provides gentle thrust."
+      gravity: "Gravity tractor: a spacecraft hovers and slowly tugs via gravity."
+      nuclear: "Nuclear option: last-resort momentum transfer; significant policy & engineering challenges."
+      note_html: "All strategies work best with <b>early detection</b> and sufficient <b>lead time</b>."
+    howto:
+      title: "Using this app"
+      pick_neo: "Pick or browse a NEO from the catalog."
+      set_params: "Set size, speed, angle, and material to approximate the object."
+      run: "Run the simulation to estimate energy, crater size, and damage rings."
+      read_results: "Read the metrics; expand panels to see thermal/blast/tsunami zones."
+      try_mitigation: "Try mitigation options and compare outcomes."
+
+    title: "☄️ What Are Meteorites?"
+    intro_p1: "A meteorite is a piece of rock or metal from space that survives passage through Earth’s atmosphere and lands on the surface. They can come from asteroids, comets, or even the Moon and Mars."
+    stages:
+      title: "🌌 From Space to Earth"
+      p1: "Before a meteorite reaches the ground, it passes through these stages:"
+      items:
+        - "Meteoroid: a small natural object traveling through space."
+        - "Meteor: the bright streak when it enters the atmosphere (“shooting star”)."
+        - "Meteorite: the fragment that reaches the ground."
+    types:
+      title: "💎 Types of Meteorites"
+      p1: "Meteorites are usually grouped into three main types:"
+      items:
+        - "Stony: mostly silicate minerals, similar to Earth’s rocks."
+        - "Iron: mostly iron and nickel; very dense and metallic."
+        - "Stony-iron: a mix of rock and metal."
+    entry:
+      title: "🔥 Atmospheric Entry"
+      p1: "Typical entry speeds range from 20–70 km/s. Friction with air heats the object and produces the glow we see as a meteor. Small objects burn up; larger ones can reach the ground."
+    why_study:
+      title: "🌍 Why They Matter"
+      p1: "Meteorites are time capsules from the early solar system. They help us understand how planets formed and what materials existed billions of years ago; some contain organic compounds relevant to the origins of life."
+    big_impacts:
+      title: "🚨 Large Impacts in History"
+      p1: "Most meteorites are tiny, but some impacts have changed Earth’s history. The Chicxulub impact in Mexico, about 66 million years ago, is linked to the dinosaur extinction."
+    observation:
+      title: "🔭 Modern Observation"
+      p1: "Agencies like NASA track Near-Earth Objects (NEOs) to assess potential hazards, using telescopes and radar to discover, monitor, and characterize them."
+    facts:
+      title: "🌠 Quick Facts"
+      items:
+        - "Roughly 100 tons of dust and small meteoroids enter Earth’s atmosphere every day."
+        - "The Hoba meteorite (Namibia) weighs over 60 tons."
+        - "Many meteorites are older than Earth—over 4.5 billion years."

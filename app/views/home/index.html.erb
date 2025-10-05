@@ -8,54 +8,34 @@
 
 <div class="home-container" id="main">
   <%= render "layouts/navbar" %>
+  <%= render "layouts/right_sidebar" %>
 
   <section class="home-hero" aria-labelledby="hero-title">
     <div class="home-hero__content">
       <!-- Threat Badge -->
-      <div class="threat-badge">
+      <div class="threat-badge" aria-label="<%= t('home.hero.badge_aria') %>">
         <span class="threat-badge__icon">⚠️</span>
-        <span class="threat-badge__text">NASA Space Apps Challenge 2025</span>
+        <span class="threat-badge__text"><%= t('home.hero.badge') %></span>
       </div>
 
       <!-- Main Title -->
       <h1 id="hero-title" class="home-hero__title">
-        <span class="home-hero__title-line">35k+ Near-Earth</span>
-        <span class="home-hero__title-line home-hero__title-line--gradient">Asteroids Monitored</span>
+        <span class="home-hero__title-line"><%= t('home.hero.title_line1', count_short: '35k+') %></span>
+        <span class="home-hero__title-line home-hero__title-line--gradient"><%= t('home.hero.title_line2') %></span>
       </h1>
 
       <!-- Subtitle -->
-      <p class="home-hero__subtitle">
-        Simulate asteroid impacts. Calculate damage zones. Explore mitigation strategies.<br>
-        Built with real NASA & USGS data and physics-based impact modeling.
-      </p>
-
-      <!-- Live Stats -->
-      <div class="home-stats">
-        <div class="home-stat">
-          <div class="home-stat__value">35,000+</div>
-          <div class="home-stat__label">Near-Earth Objects</div>
-        </div>
-        <div class="home-stat">
-          <div class="home-stat__value">~2,350</div>
-          <div class="home-stat__label">Potentially Hazardous</div>
-        </div>
-        <div class="home-stat">
-          <div class="home-stat__value">Real-Time</div>
-          <div class="home-stat__label">NASA Data</div>
-        </div>
-      </div>
+      <p class="home-hero__subtitle"><%= t('home.hero.subtitle_html').html_safe %></p>
 
       <!-- Main CTA -->
-      <%= link_to start_simulation_path, class: "home-cta" do %>
+      <%= link_to start_simulation_path, class: "home-cta", 'aria-label': t('home.cta.aria') do %>
         <span class="home-cta__icon">☄️</span>
-        <span class="home-cta__text">Explore Impact Scenarios</span>
+        <span class="home-cta__text"><%= t('home.cta.text') %></span>
         <span class="home-cta__arrow">→</span>
       <% end %>
 
       <!-- Secondary Info -->
-      <p class="home-hero__meta">
-        Heliocentric orbital mechanics • Physics-based impact modeling • Interactive 3D visualization
-      </p>
+      <p class="home-hero__meta"><%= t('home.hero.meta') %></p>
     </div>
   </section>
 </div>

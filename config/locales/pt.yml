@@ -3,35 +3,19 @@ pt:
   app:
     language: "Idioma"
     footer: "Astromichis"
-
+  pt:
   home:
     hero:
-      eyebrow: "NASA Space Apps 2025"
-      title_html: "Explore impactos <span class=\"gradient-text\">&amp; defenda a Terra</span>"
-      subtitle: "Simule cenários, estime consequências e teste estratégias de mitigação usando dados reais da NASA e do USGS."
-    cards:
-      aria: "Ações principais"
-      sim:
-        pill: "SIM"
-        status: "Ativo"
-        title: "Simulação de Impacto"
-        desc: "Defina tamanho, velocidade e ponto de impacto. Obtenha energia, tamanho da cratera e ondas de choque."
-        cta: "Iniciar →"
-        aria_open: "Abrir Simulação de Impacto"
-      mit:
-        pill: "MIT"
-        status: "Jogo"
-        title: "Mitigação (Jogo)"
-        desc: "Aplique Δv ao longo da órbita com antecedência e veja se consegue desviar o Impactor-2025."
-        cta: "Jogar →"
-        aria_open: "Abrir Mitigação/Jogo"
-      learn:
-        pill: "LEARN"
-        status: "Em breve"
-        title: "Aprender e Explorar"
-        desc: "Conceitos-chave: elementos orbitais, energia de impacto e os conjuntos de dados da NASA e do USGS por trás da ferramenta."
-        cta: "Em breve"
-        aria_open: "Abrir Aprender e Explorar (em breve)"
+      badge: "NASA Space Apps Challenge 2025"
+      badge_aria: "Selo do evento"
+      title_line1: "%{count_short} Próximos da Terra"
+      title_line2: "Asteroides monitorados"
+      subtitle_html: "Simule impactos de asteroides. Calcule zonas de dano. Explore estratégias de mitigação.<br>Construído com dados reais da NASA e do USGS e modelagem física."
+      meta: "Mecânica orbital heliocêntrica • Modelagem física de impactos • Visualização 3D interativa"
+    cta:
+      text: "Explorar cenários de impacto"
+      aria: "Abrir a simulação de impacto"
+
   sidebar:
       panels_title: "Painéis"
       inputs:
@@ -291,3 +275,54 @@ pt:
         feedback:
           frag: "A resistência do material importa; corpos rochosos se fragmentam com mais facilidade."
           default: "A composição influencia o comportamento atmosférico."
+
+  info:
+    intro:
+      title: "O que são asteroides?"
+      body_html: "Corpos rochosos ou metálicos que orbitam o Sol. A maioria fica no cinturão principal entre Marte e Júpiter, mas alguns se aproximam da órbita da Terra e são chamados de <b>Objetos Próximos da Terra (NEOs)</b>."
+    sizes:
+      title: "Tamanhos e escala"
+      micro: "Poeira e pedrinhas (< 1 cm): queimam totalmente na atmosfera."
+      small: "Metros a dezenas de metros: podem gerar bólidos; alguns explodem no ar."
+      medium: "≈50–300 m: danos urbanos a regionais possíveis, conforme material e velocidade."
+      large: "> 300 m: raros; podem causar efeitos regionais a globais."
+    composition:
+      summary_html: "<b>A composição importa:</b> rochosos, metálicos e mistos se comportam de forma diferente na entrada."
+      stony: "Rochosos: maior chance de fragmentar/explodir no ar; menor resistência média."
+      iron: "Metálicos: mais resistentes, penetram mais; maior chance de atingir o solo."
+      stony_iron: "Rocoso-metálico: propriedades mistas."
+    neo:
+      title: "NEOs e PHAs"
+      def_html: "NEOs são cometas e asteroides que chegam a ≤ 1,3 UA do Sol e podem cruzar perto da órbita da Terra. Um subconjunto são os <b>Asteroides Potencialmente Perigosos (PHAs)</b>."
+      criteria_neo: "NEO: distância do periélio ≤ 1,3 UA."
+      criteria_pha: "PHA: MOID ≤ 0,05 UA e magnitude (H) ≤ 22 (≈140 m)."
+    detection:
+      title: "Como detectamos"
+      surveys: "Levantamentos de grande campo varrem o céu e marcam objetos em movimento."
+      followup: "Telescópios de acompanhamento refinam posições e melhoram as órbitas."
+      orbits: "A determinação orbital prevê aproximações futuras e probabilidades de impacto."
+    effects:
+      title: "Efeitos de impacto"
+      tiny: "Objetos minúsculos: fenômenos visuais inofensivos (meteoros)."
+      city: "Escala urbana (~50–150 m): explosões/ondas de choque podem quebrar vidros, ferir pessoas e danificar estruturas."
+      regional: "Regional (~150–500 m): fortes efeitos de onda/térmicos; em oceano, possível tsunami."
+      global: "Global (>1 km): extremamente raros; possíveis efeitos climáticos de longo prazo."
+    cases:
+      title: "Eventos conhecidos"
+      chelyabinsk_html: "Chelyabinsk (2013, ~20 m): explosão aérea na Rússia; ~1.500 feridos, principalmente por estilhaços de vidro."
+      tunguska_html: "Tunguska (1908, ~50–60 m): explosão aérea derrubou ~2.000 km² de floresta na Sibéria."
+      chicxulub_html: "Chicxulub (~66 Ma, ~10 km): associado à extinção em massa; cratera em Yucatán."
+    mitigation:
+      title: "Mitigação"
+      kinetic: "Impactador cinético: colidir para desviar a órbita (melhor com anos de antecedência)."
+      ablation: "Laser/ablação: aquecer o material para gerar empuxo suave."
+      gravity: "Trator gravitacional: nave que “puxa” lentamente via gravidade."
+      nuclear: "Nuclear: último recurso; grandes desafios técnicos e de política."
+      note_html: "Todas funcionam melhor com <b>detecção precoce</b> e <b>tempo de preparação</b> suficiente."
+    howto:
+      title: "Como usar este app"
+      pick_neo: "Escolha ou explore um NEO do catálogo."
+      set_params: "Defina tamanho, velocidade, ângulo e material."
+      run: "Execute a simulação para estimar energia, cratera e anéis de dano."
+      read_results: "Veja as métricas; expanda painéis para zonas térmicas/onda/tsunami."
+      try_mitigation: "Teste estratégias de mitigação e compare resultados."

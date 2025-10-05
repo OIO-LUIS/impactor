@@ -1,0 +1,9 @@
+<!-- app/views/modals/open.turbo_stream.erb -->
+<%= turbo_stream.update "app_modal" do %>
+    <%= render "layouts/modal",
+        title_key:   @title_key,
+        body_partial: @body_partial,
+        body_locals:  @body_locals %>
+<% end %>
+
+

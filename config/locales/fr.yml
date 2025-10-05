@@ -6,32 +6,26 @@ fr:
 
   home:
     hero:
-      eyebrow: "NASA Space Apps 2025"
-      title_html: "Explorez les impacts <span class=\"gradient-text\">&amp; défendez la Terre</span>"
-      subtitle: "Simulez des scénarios, estimez les conséquences et testez des stratégies de mitigation à l’aide des données réelles de la NASA et de l’USGS."
-    cards:
-      aria: "Actions principales"
-      sim:
-        pill: "SIM"
-        status: "Actif"
-        title: "Simulation d'Impact"
-        desc: "Définissez la taille, la vitesse et le point d’impact. Obtenez l’énergie, le cratère et les ondes de choc."
-        cta: "Commencer →"
-        aria_open: "Ouvrir la Simulation d’Impact"
-      mit:
-        pill: "MIT"
-        status: "Jeu"
-        title: "Mitigation (Jeu)"
-        desc: "Appliquez un Δv le long de la trajectoire avec un délai et voyez si vous pouvez dévier Impactor-2025."
-        cta: "Jouer →"
-        aria_open: "Ouvrir le Jeu de Mitigation"
-      learn:
-        pill: "LEARN"
-        status: "Bientôt"
-        title: "Apprendre & Explorer"
-        desc: "Concepts clés : éléments orbitaux, énergie d’impact et jeux de données NASA/USGS utilisés par l’outil."
-        cta: "Bientôt"
-        aria_open: "Ouvrir Apprendre & Explorer (bientôt)"
+      badge: "NASA Space Apps Challenge 2025"
+      badge_aria: "Badge d’événement"
+      title_line1: "%{count_short} proches de la Terre"
+      title_line2: "Astéroïdes surveillés"
+      subtitle_html: "Simulez des impacts d’astéroïdes. Calculez les zones de dommages. Explorez des stratégies d’atténuation.<br>Construit avec des données réelles de la NASA et de l’USGS et une modélisation physique."
+      meta: "Mécanique orbitale héliocentrique • Modélisation physique des impacts • Visualisation 3D interactive"
+    stats:
+      aria: "Statistiques clés"
+      neo:
+        value: "35 000+"
+        label: "Objets géocroiseurs"
+      pha:
+        value: "~2 350"
+        label: "Potentiellement dangereux"
+      nasa:
+        value: "Temps réel"
+        label: "Données NASA"
+    cta:
+      text: "Explorer des scénarios d’impact"
+      aria: "Ouvrir la simulation d’impact"
 
   sidebar:
       panels_title: "Panneaux"
@@ -293,3 +287,54 @@ fr:
         feedback:
           frag: "La résistance du matériau compte : les corps pierreux se fragmentent plus facilement."
           default: "La composition influence le comportement à l’entrée."
+
+  info:
+    intro:
+      title: "Qu’est-ce qu’un astéroïde ?"
+      body_html: "Petits corps rocheux ou métalliques en orbite autour du Soleil. La plupart résident dans la ceinture principale entre Mars et Jupiter, mais certains s’approchent de l’orbite terrestre : ce sont les <b>géocroiseurs (NEOs)</b>."
+    sizes:
+      title: "Tailles & échelles"
+      micro: "Poussières & graviers (< 1 cm) : se consument dans l’atmosphère."
+      small: "De quelques mètres à dizaines : peuvent produire des bolides ; parfois explosion aérienne."
+      medium: "≈50–300 m : dommages possibles à l’échelle d’une ville ou d’une région."
+      large: "> 300 m : rares ; effets régionaux à globaux."
+    composition:
+      summary_html: "<b>La composition compte :</b> rocheux, ferreux ou mixtes n’entrent pas de la même façon."
+      stony: "Rocheux : plus susceptibles de se fragmenter/exploser en altitude."
+      iron: "Ferreux : plus résistants, pénètrent davantage ; plus susceptibles d’atteindre le sol."
+      stony_iron: "Roche-fer : propriétés intermédiaires."
+    neo:
+      title: "NEOs & PHAs"
+      def_html: "Les NEOs (astéroïdes/comètes) passent à ≤ 1,3 UA du Soleil et peuvent croiser près de l’orbite terrestre. Parmi eux, les <b>PHAs</b> (potentiellement dangereux)."
+      criteria_neo: "NEO : distance au périhélie ≤ 1,3 UA."
+      criteria_pha: "PHA : MOID ≤ 0,05 UA et magnitude (H) ≤ 22 (≈140 m)."
+    detection:
+      title: "Détection"
+      surveys: "Grandes enquêtes nocturnes détectent les objets en mouvement."
+      followup: "Observations de suivi affinent la position et l’orbite."
+      orbits: "Le calcul d’orbite prévoit les approches futures et les probabilités d’impact."
+    effects:
+      title: "Effets d’impact"
+      tiny: "Objets minuscules : phénomènes visuels sans danger (étoiles filantes)."
+      city: "Échelle urbaine (~50–150 m) : ondes de choc/thermiques, bris de vitres et dégâts."
+      regional: "Régional (~150–500 m) : effets sévères ; en mer, tsunami possible."
+      global: "Global (>1 km) : extrêmement rare ; effets climatiques possibles."
+    cases:
+      title: "Cas connus"
+      chelyabinsk_html: "Tcheliabinsk (2013, ~20 m) : explosion aérienne en Russie ; ~1 500 blessés, vitres brisées."
+      tunguska_html: "Tunguska (1908, ~50–60 m) : explosion aérienne rasant ~2 000 km² de forêt."
+      chicxulub_html: "Chicxulub (~66 Ma, ~10 km) : lié à une extinction massive ; cratère au Yucatán."
+    mitigation:
+      title: "Stratégies d’atténuation"
+      kinetic: "Impacteur cinétique : frapper pour dévier (efficace avec plusieurs années d’avance)."
+      ablation: "Laser/ablation : chauffer pour créer une poussée douce."
+      gravity: "Tracteur gravitationnel : la sonde « tire » l’astéroïde par gravité."
+      nuclear: "Nucléaire : ultime recours ; forts enjeux techniques et politiques."
+      note_html: "Toutes les approches sont meilleures avec <b>détection précoce</b> et <b>délai suffisant</b>."
+    howto:
+      title: "Utiliser cette application"
+      pick_neo: "Choisissez ou parcourez un NEO dans le catalogue."
+      set_params: "Définissez taille, vitesse, angle et matériau."
+      run: "Lancez la simulation (énergie, cratère, anneaux de dégâts)."
+      read_results: "Lisez les métriques ; ouvrez les panneaux (thermique/onde/tsunami)."
+      try_mitigation: "Essayez des atténuations et comparez."
