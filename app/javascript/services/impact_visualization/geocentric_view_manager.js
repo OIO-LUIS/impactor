@@ -45,6 +45,49 @@ export class GeocentricViewManager {
   }
 
   /**
+   * Create starfield background using Milky Way skybox
+   * Same as heliocentric view but scaled for Earth distances
+   */
+  createStarfield() {
+    console.log("🌌 Creating Milky Way background for geocentric view...")
+
+    // Create skybox at far distance (beyond camera far plane)
+    const skyRadius = this.EARTH_R * 200  // 200 Earth radii
+    const skyGeometry = new THREE.SphereGeometry(skyRadius, 64, 64)
+
+    console.log(`  📏 Skybox radius: ${(skyRadius / 1000000).toFixed(0)} million km`)
+
+    // Load the Milky Way texture (same as heliocentric view)
+    const textureLoader = new THREE.TextureLoader()
+    const milkyWayTexture = textureLoader.load('/assets/stars.jpg',
+      (texture) => {
+        console.log("  ✅ Milky Way texture loaded")
+        texture.wrapS = THREE.RepeatWrapping
+        texture.wrapT = THREE.RepeatWrapping
+        texture.repeat.set(1, 1)
+      },
+      undefined,
+      (error) => {
+        console.warn("  ⚠️ Could not load Milky Way texture, using fallback color")
+      }
+    )
+
+    // Create material with the texture on the inside of the sphere
+    const skyMaterial = new THREE.MeshBasicMaterial({
+      map: milkyWayTexture,
+      side: THREE.BackSide,  // Render on inside of sphere
+      fog: false  // Don't apply fog to the skybox
+    })
+
+    // Create the skybox mesh
+    this.starfield = new THREE.Mesh(skyGeometry, skyMaterial)
+    this.starfield.name = 'MilkyWaySkybox'
+    this.scene.add(this.starfield)
+
+    console.log("  ✅ Milky Way skybox created for geocentric view")
+  }
+
+  /**
    * Create Earth sphere with ocean and atmosphere layers
    * Earth is composed of:
    * 1. Ocean sphere (base layer) - Phong material with specular highlights
@@ -54,14 +97,14 @@ export class GeocentricViewManager {
   setupEarth() {
     this.earthGroup = new THREE.Group()
 
-    // Ocean sphere (base layer)
+    // Ocean sphere (base layer) - brightened for better visibility
     const oceanGeometry = new THREE.SphereGeometry(this.EARTH_R, 64, 64)
     const oceanMaterial = new THREE.MeshPhongMaterial({
-      color: 0x003366,
-      specular: 0x004488,
-      shininess: 40,
-      emissive: 0x001122,
-      emissiveIntensity: 0.3
+      color: 0x006699,  // Brighter blue for better contrast
+      specular: 0x0088cc,  // Brighter specular
+      shininess: 60,  // More shine
+      emissive: 0x002244,  // Brighter emissive
+      emissiveIntensity: 0.5  // Increased intensity
     })
     this.oceanMesh = new THREE.Mesh(oceanGeometry, oceanMaterial)
     this.earthGroup.add(this.oceanMesh)
@@ -165,12 +208,12 @@ export class GeocentricViewManager {
       else shape.lineTo(v.x, v.y)
     })
 
-    // Create mesh with land coloring
+    // Create mesh with land coloring - brightened for visibility
     const geometry = new THREE.ShapeGeometry(shape)
     const material = new THREE.MeshPhongMaterial({
-      color: 0x2a4a2a,
-      emissive: 0x1a2a1a,
-      emissiveIntensity: 0.2,
+      color: 0x4a7a4a,  // Brighter green
+      emissive: 0x2a4a2a,  // Brighter emissive
+      emissiveIntensity: 0.4,  // Increased intensity
       side: THREE.DoubleSide
     })
 
@@ -210,8 +253,8 @@ export class GeocentricViewManager {
     lineGeometry.setAttribute('position', new THREE.Float32BufferAttribute(coastlineVertices, 3))
 
     const lineMaterial = new THREE.LineBasicMaterial({
-      color: 0x88aacc,
-      opacity: 0.4,
+      color: 0xaaccee,  // Brighter coastlines
+      opacity: 0.6,  // More visible
       transparent: true
     })
 

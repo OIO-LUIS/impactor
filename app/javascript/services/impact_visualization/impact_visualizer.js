@@ -67,24 +67,31 @@ export class ImpactVisualizer {
    */
   createMeteor(trajectory, diameter) {
     this.trajectory = trajectory
-    const visualScale = Math.min(diameter * 45, 20000)  // Visual exaggeration for visibility
+    // Ensure minimum visible size (1km) even for small meteors
+    const visualScale = Math.max(1000, Math.min(diameter * 100, 50000))  // Visual exaggeration for visibility
 
     console.log("☄️  Creating meteor:")
     console.log("  - Actual diameter:", diameter, "m")
     console.log("  - Visual scale:", visualScale, "m (exaggerated for visibility)")
+    console.log("  - Trajectory points:", trajectory.length)
+    console.log("  - Start position:", trajectory[0])
 
     // Core meteor (rough surface)
     const meteorGeometry = new THREE.IcosahedronGeometry(visualScale, 1)
-    const meteorMaterial = new THREE.MeshPhongMaterial({
-      color: 0x886644,
-      emissive: 0xff6600,
-      emissiveIntensity: 0.5,
-      shininess: 10
+    // Use MeshBasicMaterial for guaranteed visibility
+    const meteorMaterial = new THREE.MeshBasicMaterial({
+      color: 0xff6600,  // Bright orange for visibility
+      transparent: false
     })
 
     this.meteorObject = new THREE.Mesh(meteorGeometry, meteorMaterial)
     this.meteorObject.position.copy(this.trajectory[0])
+    this.meteorObject.name = "Meteor"
     this.scene.add(this.meteorObject)
+
+    console.log("  ✅ Meteor added to scene")
+    console.log("  - Scene children count:", this.scene.children.length)
+    console.log("  - Meteor in scene:", this.scene.getObjectByName("Meteor") !== undefined)
 
     // Add glow sphere around meteor (atmospheric heating)
     const glowGeometry = new THREE.SphereGeometry(visualScale * 1.5, 16, 16)
@@ -150,19 +157,20 @@ export class ImpactVisualizer {
     if (progress > 0.8) {
       const atmosphereProgress = (progress - 0.8) * 5  // 0 to 1 over last 20%
 
-      // Increase brightness
-      this.meteorObject.material.emissiveIntensity = 0.5 + atmosphereProgress * 2
+      // Change color to simulate heating (orange to white)
+      const hue = 0.08 - atmosphereProgress * 0.08
+      const lightness = 0.5 + atmosphereProgress * 0.3
+      this.meteorObject.material.color.setHSL(hue, 1, lightness)
 
       if (this.meteorGlow) {
         // Increase glow opacity
         this.meteorGlow.material.opacity = 0.3 + atmosphereProgress * 0.5
 
         // Color shift: orange → yellow → white-hot
-        // HSL: Hue 0.08 (orange) → 0.0 (red-white)
         this.meteorGlow.material.color.setHSL(
-          0.08 - atmosphereProgress * 0.08,  // Hue
+          hue,  // Same hue as meteor
           1,  // Saturation
-          0.5 + atmosphereProgress * 0.3  // Lightness (brighter)
+          lightness  // Same lightness
         )
       }
 
@@ -192,6 +200,11 @@ export class ImpactVisualizer {
   updateFollowCamera(progress) {
     const meteorPos = this.meteorObject.position
     const earthCenter = new THREE.Vector3(0, 0, 0)
+
+    // Log camera follow status periodically
+    if (Math.floor(progress * 100) % 10 === 0) {
+      console.log(`  📷 Camera following at ${(progress * 100).toFixed(0)}%`)
+    }
 
     // Calculate direction from meteor to Earth
     const meteorToEarth = earthCenter.clone().sub(meteorPos).normalize()

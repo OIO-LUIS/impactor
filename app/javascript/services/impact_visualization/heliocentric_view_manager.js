@@ -43,6 +43,8 @@ export class HeliocentricViewManager {
     this.orbitalEarth = null
     this.neoOrbitLine = null
     this.neoMesh = null
+    this.neoLabel = null
+    this.neoName = "NEO"
     this.encounterMarker = null
     this.velocityVectors = []
     this.neoOrbitalElements = null
@@ -443,8 +445,9 @@ export class HeliocentricViewManager {
    * @param {Object} orbitalElements - Keplerian orbital elements
    * @param {Date} encounterTime - Time of encounter (optional)
    * @param {Function} positionNeoAtTime - Callback to position NEO at time
+   * @param {string} neoName - Name of the NEO for labeling (optional)
    */
-  createNeoOrbit(orbitalElements, encounterTime = null, positionNeoAtTime = null) {
+  createNeoOrbit(orbitalElements, encounterTime = null, positionNeoAtTime = null, neoName = "NEO") {
     console.log("☄️ Creating NEO orbit from Keplerian elements...")
 
     if (!orbitalElements) {
@@ -455,48 +458,72 @@ export class HeliocentricViewManager {
     // Store orbital elements for later use
     this.neoOrbitalElements = orbitalElements
     this.encounterTime = encounterTime
+    this.neoName = neoName
 
     // Clear previous NEO orbit if exists
     if (this.neoOrbitLine) {
       this.scene.remove(this.neoOrbitLine)
+      this.neoOrbitLine = null
     }
     if (this.neoMesh) {
       this.scene.remove(this.neoMesh)
+      this.neoMesh = null
+    }
+    if (this.neoLabel) {
+      // Label is a child of neoMesh, so it's already removed
+      this.neoLabel = null
     }
 
-    // Extract orbital elements
-    const a = orbitalElements.semi_major_axis_au * this.AU / this.SCENE_SCALE
-    const e = orbitalElements.eccentricity
-    const i = THREE.MathUtils.degToRad(orbitalElements.inclination_deg || 0)
-    const omega = THREE.MathUtils.degToRad(orbitalElements.argument_perihelion_deg || 0)
-    const Omega = THREE.MathUtils.degToRad(orbitalElements.longitude_ascending_node_deg || 0)
-
     console.log("  📊 Orbital parameters:")
-    console.log(`    - Semi-major axis: ${a.toFixed(2)} scene units`)
-    console.log(`    - Eccentricity: ${e}`)
+    console.log(`    - Semi-major axis: ${orbitalElements.semi_major_axis_au} AU`)
+    console.log(`    - Eccentricity: ${orbitalElements.eccentricity}`)
     console.log(`    - Inclination: ${orbitalElements.inclination_deg}°`)
+    console.log(`    - NEO Name: ${neoName}`)
 
-    // Generate ellipse points in orbital plane
+    // Generate orbit points using OrbitalMechanicsCalculator for accuracy
     const segments = 256
     const orbitPoints = []
 
-    for (let j = 0; j <= segments; j++) {
-      const theta = (j / segments) * Math.PI * 2  // True anomaly
+    if (!this.orbitalMech) {
+      console.warn("  ⚠️ OrbitalMechanicsCalculator not available, using simplified orbit")
+      // Fallback to simple ellipse if calculator not available
+      const a = orbitalElements.semi_major_axis_au * this.AU / this.SCENE_SCALE
+      const e = orbitalElements.eccentricity
+      const i = THREE.MathUtils.degToRad(orbitalElements.inclination_deg || 0)
+      const omega = THREE.MathUtils.degToRad(orbitalElements.argument_perihelion_deg || 0)
+      const Omega = THREE.MathUtils.degToRad(orbitalElements.longitude_ascending_node_deg || 0)
 
-      // Position in orbital plane (centered at focus)
-      const r = a * (1 - e * e) / (1 + e * Math.cos(theta))
-      const x_orb = r * Math.cos(theta)
-      const z_orb = r * Math.sin(theta)
+      for (let j = 0; j <= segments; j++) {
+        const theta = (j / segments) * Math.PI * 2
+        const r = a * (1 - e * e) / (1 + e * Math.cos(theta))
+        const x_orb = r * Math.cos(theta)
+        const z_orb = r * Math.sin(theta)
+        const x1 = x_orb * Math.cos(omega) - z_orb * Math.sin(omega)
+        const z1 = x_orb * Math.sin(omega) + z_orb * Math.cos(omega)
+        const x2 = x1 * Math.cos(Omega) - z1 * Math.cos(i) * Math.sin(Omega)
+        const y2 = z1 * Math.sin(i)
+        const z2 = x1 * Math.sin(Omega) + z1 * Math.cos(i) * Math.cos(Omega)
+        orbitPoints.push(new THREE.Vector3(x2, y2, z2))
+      }
+    } else {
+      // Use OrbitalMechanicsCalculator for scientifically accurate orbit
+      console.log("  🔬 Using OrbitalMechanicsCalculator for accurate orbit generation")
 
-      // Apply orbital orientation (3D rotation)
-      const x1 = x_orb * Math.cos(omega) - z_orb * Math.sin(omega)
-      const z1 = x_orb * Math.sin(omega) + z_orb * Math.cos(omega)
+      const epochJD = orbitalElements.epoch_jd || this.orbitalMech.timeToJulianDate(encounterTime || new Date())
+      const meanMotion = orbitalElements.mean_motion_deg_per_day || this.orbitalMech.calculateMeanMotion(orbitalElements.semi_major_axis_au)
 
-      const x2 = x1 * Math.cos(Omega) - z1 * Math.cos(i) * Math.sin(Omega)
-      const y2 = z1 * Math.sin(i)
-      const z2 = x1 * Math.sin(Omega) + z1 * Math.cos(i) * Math.cos(Omega)
+      // Calculate orbital period in days
+      const orbitalPeriodDays = 360.0 / meanMotion
 
-      orbitPoints.push(new THREE.Vector3(x2, y2, z2))
+      // Generate points over one complete orbit
+      for (let j = 0; j <= segments; j++) {
+        const t = (j / segments) * orbitalPeriodDays  // Days from epoch
+        const timeJD = epochJD + t
+        const position = this.orbitalMech.calculateOrbitalPosition(orbitalElements, timeJD)
+        orbitPoints.push(position)
+      }
+
+      console.log(`  ✅ Generated ${orbitPoints.length} points using orbital mechanics calculator`)
     }
 
     // Create orbit line
@@ -508,6 +535,7 @@ export class HeliocentricViewManager {
     })
 
     this.neoOrbitLine = new THREE.Line(orbitGeometry, orbitMaterial)
+    this.neoOrbitLine.name = 'NEOOrbit'
     this.scene.add(this.neoOrbitLine)
 
     // Create NEO mesh (small sphere)
@@ -521,18 +549,54 @@ export class HeliocentricViewManager {
     })
 
     this.neoMesh = new THREE.Mesh(neoGeometry, neoMaterial)
+    this.neoMesh.name = neoName
+
+    // Add NEO label (matching planet label style)
+    const canvas = document.createElement('canvas')
+    const context = canvas.getContext('2d')
+    canvas.width = 1024
+    canvas.height = 256
+    context.font = 'Bold 180px Arial'
+    context.fillStyle = 'rgba(255, 107, 53, 1.0)'  // Orange color matching NEO orbit
+    context.textAlign = 'center'
+    context.textBaseline = 'middle'
+    context.fillText(neoName, 512, 128)
+
+    const labelTexture = new THREE.CanvasTexture(canvas)
+    const labelMaterial = new THREE.SpriteMaterial({
+      map: labelTexture,
+      transparent: true,
+      opacity: 1.0,
+      depthTest: false,
+      sizeAttenuation: true
+    })
+
+    this.neoLabel = new THREE.Sprite(labelMaterial)
+    // Large scale matching planet labels
+    const baseScale = 40
+    const orbitScale = Math.sqrt(orbitalElements.semi_major_axis_au)  // Scale based on orbital distance
+    this.neoLabel.scale.set(baseScale * orbitScale, baseScale * orbitScale * 0.25, 1)
+    this.neoLabel.position.set(0, neoRadius * 2, 0)  // Directly above NEO
+    this.neoMesh.add(this.neoLabel)
 
     // Position NEO at encounter time if provided
     if (encounterTime && positionNeoAtTime) {
       positionNeoAtTime(encounterTime)
+    } else if (this.orbitalMech) {
+      const epochJD = orbitalElements.epoch_jd || this.orbitalMech.timeToJulianDate(encounterTime || new Date())
+      const position = this.orbitalMech.calculateOrbitalPosition(orbitalElements, epochJD)
+      this.neoMesh.position.copy(position)
     } else {
+      // Fallback: position at perihelion
+      const a = orbitalElements.semi_major_axis_au * this.AU / this.SCENE_SCALE
+      const e = orbitalElements.eccentricity
       const perihelionDistance = a * (1 - e)
       this.neoMesh.position.set(perihelionDistance, 0, 0)
     }
 
     this.scene.add(this.neoMesh)
 
-    console.log("  ✅ NEO orbit created")
+    console.log(`  ✅ NEO orbit created with label "${neoName}"`)
   }
 
   /**
@@ -699,6 +763,10 @@ export class HeliocentricViewManager {
     if (this.neoMesh) {
       this.scene.remove(this.neoMesh)
       this.neoMesh = null
+    }
+    if (this.neoLabel) {
+      // Label is child of neoMesh, so it's already removed
+      this.neoLabel = null
     }
 
     // Remove encounter marker
