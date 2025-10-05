@@ -197,12 +197,13 @@ export default class extends Controller {
       GEOCENTRIC: 'geocentric'        // Earth-centered impact view
     }
 
-    // Heliocentric view scales (from config)
+    // Heliocentric view scales (from config) - adjusted for better visibility
     this.AU = cfg.AU_KM
     this.SCENE_SCALE = cfg.SCENE_SCALE
     this.SUN_R_ACTUAL = cfg.SUN_RADIUS_KM
-    this.SUN_R_VISUAL = cfg.SUN_VISUAL_SCALE * this.AU
-    this.EARTH_R_VISUAL = cfg.EARTH_VISUAL_SCALE * this.AU
+    // Visible proportions for better user experience
+    this.SUN_R_VISUAL = 0.05 * this.AU  // 5% of AU - clearly visible as the Sun
+    this.EARTH_R_VISUAL = 0.02 * this.AU  // 2% of AU - matching planet manager
 
     // Initialize view state management
     this.viewState = new ViewState(this.VIEW_MODES.HELIOCENTRIC)
@@ -316,58 +317,12 @@ export default class extends Controller {
     // Only add fog for geocentric view
     if (this.currentView === this.VIEW_MODES.GEOCENTRIC) {
       this.scene.fog = new THREE.Fog(0x000011, this.EARTH_R * 2, this.EARTH_R * 20)
-
-      // Enhanced starfield with varying brightness and colors (for geocentric)
-      const cfg = this.constructor.CONFIG
-      const starsGeometry = new THREE.BufferGeometry()
-      const starPositions = []
-      const starColors = []
-      const starCount = cfg.STARFIELD_COUNT
-
-      for (let i = 0; i < starCount; i++) {
-        // Spherical distribution (uniform on sphere surface)
-        const theta = Math.random() * Math.PI * 2  // Azimuthal angle
-        const phi = Math.acos(2 * Math.random() - 1)  // Polar angle (uniform distribution)
-        const r = this.EARTH_R * (30 + Math.random() * 70)
-
-      // Convert spherical to Cartesian coordinates
-      starPositions.push(
-        r * Math.sin(phi) * Math.cos(theta),
-        r * Math.sin(phi) * Math.sin(theta),
-        r * Math.cos(phi)
-      )
-
-      // Vary star colors (yellowish, white, bluish) based on stellar temperatures
-      const intensity = 0.5 + Math.random() * 0.5
-      const temp = Math.random()
-      if (temp < 0.3) {
-        starColors.push(intensity, intensity * 0.95, intensity * 0.9) // Yellowish (cooler stars)
-      } else if (temp < 0.7) {
-        starColors.push(intensity, intensity, intensity) // White
-      } else {
-        starColors.push(intensity * 0.9, intensity * 0.95, intensity) // Bluish (hotter stars)
-      }
-    }
-
-    starsGeometry.setAttribute('position', new THREE.Float32BufferAttribute(starPositions, 3))
-    starsGeometry.setAttribute('color', new THREE.Float32BufferAttribute(starColors, 3))
-
-    const starsMaterial = new THREE.PointsMaterial({
-      size: 150,
-      vertexColors: true,
-      sizeAttenuation: false
-    })
-      this.stars = new THREE.Points(starsGeometry, starsMaterial)
-      this.scene.add(this.stars)
-
-      console.log("🌌 Scene created with", starCount, "stars")
-    } else {
-      // For heliocentric view, we'll add stars in setupHeliocentricView
-      console.log("🎬 Scene created for heliocentric view")
     }
 
     // Set background color
     this.scene.background = new THREE.Color(0x000011)  // Very dark space
+
+    console.log("🎬 Scene created")
   }
 
   /**
@@ -518,7 +473,7 @@ export default class extends Controller {
   /**
    * Setup heliocentric (Sun-centered) view for orbital visualization
    */
-  setupHeliocentricView() {
+  async setupHeliocentricView() {
     console.log("🌟 Setting up heliocentric view...")
 
     try {
@@ -531,17 +486,65 @@ export default class extends Controller {
       // Create the Sun
       this.heliocentricView.createSun()
 
-      // Create Earth's orbit path
+      // Create all planets with NASA textures
+      await this.heliocentricView.createAllPlanets(true)
+
+      // Create Earth's orbit path (special handling)
       this.heliocentricView.createEarthOrbit()
 
       // Create Earth at its orbital position
       this.heliocentricView.createOrbitalEarth()
 
-      // Position Earth at current time for initial view
-      this.positionEarthAtTime(new Date())
+      // Fetch planet positions from backend using Horizons API for current time
+      console.log("🔭 Fetching current planetary positions from Horizons API...")
+      const currentTime = new Date()
 
-      // Setup camera for orbital view
+      try {
+        // Make a request to get current planet positions
+        const response = await fetch('/simulate', {
+          method: 'POST',
+          headers: {
+            'Content-Type': 'application/json',
+            'X-CSRF-Token': document.querySelector('meta[name="csrf-token"]')?.content || ''
+          },
+          body: JSON.stringify({
+            encounter_time: currentTime.toISOString(),
+            fetch_planets_only: true  // Special flag to just get planet positions
+          })
+        })
+
+        if (response.ok) {
+          const data = await response.json()
+
+          if (data.visualization?.planets) {
+            console.log("✅ Received planet positions from Horizons API")
+            this.heliocentricView.updatePlanetPositions(data.visualization.planets)
+          } else {
+            console.log("⚠️ No planet data in response, using fallback positions")
+            await this.heliocentricView.positionPlanetsAtTime(currentTime)
+          }
+        } else {
+          console.log("⚠️ Failed to fetch from backend, using fallback positions")
+          await this.heliocentricView.positionPlanetsAtTime(currentTime)
+        }
+      } catch (error) {
+        console.error("❌ Error fetching planet positions:", error)
+        console.log("⚠️ Using fallback positions")
+        await this.heliocentricView.positionPlanetsAtTime(currentTime)
+      }
+
+      // Position Earth separately
+      this.positionEarthAtTime(currentTime)
+
+      // Setup camera for orbital view (adjust for full solar system)
       this.heliocentricView.setupOrbitalCamera()
+
+      // Adjust camera distance to see outer planets
+      if (this.controls) {
+        const neptuneDist = 30.07 * this.AU / this.SCENE_SCALE  // Neptune at 30 AU
+        this.controls.maxDistance = neptuneDist * 1.5  // Allow viewing beyond Neptune
+        this.controls.update()
+      }
 
       // Add initial ambient lighting
       const ambientLight = new THREE.AmbientLight(0x222244, 0.3)
@@ -553,7 +556,7 @@ export default class extends Controller {
       // Add welcome info panel
       this.heliocentricView.showWelcomePanel()
 
-      console.log("✅ Heliocentric view initialized")
+      console.log("✅ Heliocentric view initialized with all planets")
 
       // Debug: List all objects in the scene
       this.debugScene()
@@ -1073,7 +1076,7 @@ export default class extends Controller {
    * Process simulation data for heliocentric view
    * @private
    */
-  _processHeliocentricView(data, orbitalInfo) {
+  async _processHeliocentricView(data, orbitalInfo) {
     console.log("🌟 Processing in HELIOCENTRIC mode")
 
     const { orbitalElements, encounterTime } = orbitalInfo
@@ -1084,6 +1087,16 @@ export default class extends Controller {
       encounterTime,
       (time) => this.positionNeoAtTime(time)
     )
+
+    // Update planet positions if provided by backend
+    if (data.visualization?.planets) {
+      console.log("🪐 Updating planet positions from backend Horizons data")
+      this.heliocentricView.updatePlanetPositions(data.visualization.planets)
+    } else if (encounterTime) {
+      // Position planets at encounter time using defaults
+      console.log("🪐 Positioning planets at encounter time")
+      await this.heliocentricView.positionPlanetsAtTime(encounterTime)
+    }
 
     // Position objects using backend data (preferred) or frontend approximations
     if (data.visualization?.earth_position && data.visualization?.neo_position) {
@@ -1102,10 +1115,13 @@ export default class extends Controller {
       () => this.orbitalMech.calculateNeoVelocity(this.heliocentricView.getObjects().neoMesh?.position)
     )
 
-    // Setup timeline controls
+    // Setup timeline controls with planet updates
     this.timelineCtrl.setupOrbitalTimeline(
       encounterTime,
-      (time) => this.positionEarthAtTime(time),
+      async (time) => {
+        this.positionEarthAtTime(time)
+        await this.heliocentricView.positionPlanetsAtTime(time)
+      },
       (time) => this.positionNeoAtTime(time)
     )
 

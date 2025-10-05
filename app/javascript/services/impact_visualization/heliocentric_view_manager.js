@@ -5,6 +5,7 @@
 // Manages the Sun-centered orbital view including:
 // - Starfield background
 // - Sun rendering with glow effect
+// - All 8 planets with NASA textures and accurate positions
 // - Earth's circular orbit
 // - NEO's elliptical orbit from Keplerian elements
 // - Encounter markers
@@ -17,6 +18,7 @@
 // ============================================================================
 
 import * as THREE from "three"
+import { PlanetManager } from "./planet_manager.js"
 
 export class HeliocentricViewManager {
   constructor(scene, camera, controls, AU, SCENE_SCALE, SUN_R_VISUAL, EARTH_R_VISUAL, orbitalMech = null) {
@@ -28,6 +30,9 @@ export class HeliocentricViewManager {
     this.SUN_R_VISUAL = SUN_R_VISUAL
     this.EARTH_R_VISUAL = EARTH_R_VISUAL
     this.orbitalMech = orbitalMech
+
+    // Initialize PlanetManager for all planets
+    this.planetManager = new PlanetManager(scene, AU, SCENE_SCALE)
 
     // Track created objects for cleanup
     this.starfield = null
@@ -43,6 +48,7 @@ export class HeliocentricViewManager {
     this.neoOrbitalElements = null
     this.encounterTime = null
     this.earthOrbitalAngle = Math.PI / 2
+    this.planetsCreated = false
   }
 
   /**
@@ -124,69 +130,81 @@ export class HeliocentricViewManager {
   }
 
   /**
-   * Create starfield background with 5000 stars
+   * Create Milky Way background using spherical skybox
    */
   createStarfield() {
-    console.log("✨ Creating starfield...")
+    console.log("🌌 Creating Milky Way background...")
 
-    const starGeometry = new THREE.BufferGeometry()
-    const starCount = 5000
-    const positions = new Float32Array(starCount * 3)
-    const colors = new Float32Array(starCount * 3)
+    // Create enormous skybox that can never be escaped
+    // Using a very large fixed radius regardless of zoom level
+    const skyRadius = 8000  // Extremely large - far beyond any zoom capability
+    const skyGeometry = new THREE.SphereGeometry(skyRadius, 64, 64)
 
-    for (let i = 0; i < starCount; i++) {
-      const i3 = i * 3
+    console.log(`  📏 Skybox radius: ${skyRadius} scene units (infinite background)`)
 
-      // Random position in sphere
-      const radius = 500 + Math.random() * 1000
-      const theta = Math.random() * Math.PI * 2
-      const phi = Math.acos(2 * Math.random() - 1)
+    // Load the Milky Way texture
+    const textureLoader = new THREE.TextureLoader()
+    const milkyWayTexture = textureLoader.load('/assets/stars.jpg',
+      (texture) => {
+        console.log("  ✅ Milky Way texture loaded")
+        texture.wrapS = THREE.RepeatWrapping
+        texture.wrapT = THREE.RepeatWrapping
+        texture.repeat.set(1, 1)
+      },
+      undefined,
+      (error) => {
+        console.warn("  ⚠️ Could not load Milky Way texture, using fallback color")
+      }
+    )
 
-      positions[i3] = radius * Math.sin(phi) * Math.cos(theta)
-      positions[i3 + 1] = radius * Math.sin(phi) * Math.sin(theta)
-      positions[i3 + 2] = radius * Math.cos(phi)
-
-      // Random star color (white to blue-white)
-      const brightness = 0.5 + Math.random() * 0.5
-      colors[i3] = brightness * (0.8 + Math.random() * 0.2)
-      colors[i3 + 1] = brightness * (0.8 + Math.random() * 0.2)
-      colors[i3 + 2] = brightness
-    }
-
-    starGeometry.setAttribute('position', new THREE.BufferAttribute(positions, 3))
-    starGeometry.setAttribute('color', new THREE.BufferAttribute(colors, 3))
-
-    const starMaterial = new THREE.PointsMaterial({
-      size: 1,
-      vertexColors: true,
-      transparent: true,
-      opacity: 0.8,
-      sizeAttenuation: false
+    // Create material with the texture on the inside of the sphere
+    const skyMaterial = new THREE.MeshBasicMaterial({
+      map: milkyWayTexture,
+      side: THREE.BackSide,  // Render on inside of sphere
+      fog: false  // Don't apply fog to the skybox
     })
 
-    this.starfield = new THREE.Points(starGeometry, starMaterial)
+    // Create the skybox mesh
+    this.starfield = new THREE.Mesh(skyGeometry, skyMaterial)
+    this.starfield.name = 'MilkyWaySkybox'
     this.scene.add(this.starfield)
 
-    console.log("  ✅ Starfield created with", starCount, "stars")
+    console.log("  ✅ Milky Way skybox created")
   }
 
   /**
-   * Create Sun at origin with glow effect and lighting
+   * Create Sun at origin with texture and glow effect
    */
   createSun() {
     console.log("☀️ Creating Sun...")
 
     // Sun geometry (scaled for visibility)
     const sunRadius = this.SUN_R_VISUAL / this.SCENE_SCALE
-    const sunGeometry = new THREE.SphereGeometry(sunRadius, 32, 32)
+    const sunGeometry = new THREE.SphereGeometry(sunRadius, 64, 64)
 
     console.log(`  - Sun radius: ${sunRadius} scene units`)
     console.log(`  - Sun visual size: ${this.SUN_R_VISUAL} km`)
 
-    // Sun material - bright basic material
+    // Load Sun texture
+    const textureLoader = new THREE.TextureLoader()
+    const sunTexture = textureLoader.load('/assets/sun.jpg',
+      (texture) => {
+        console.log("  ✅ Sun texture loaded")
+        texture.wrapS = THREE.RepeatWrapping
+        texture.wrapT = THREE.RepeatWrapping
+      },
+      undefined,
+      (error) => {
+        console.warn("  ⚠️ Could not load Sun texture, using fallback color")
+      }
+    )
+
+    // Sun material with texture and emissive glow
     const sunMaterial = new THREE.MeshBasicMaterial({
-      color: 0xFFD700,
-      transparent: false
+      map: sunTexture,
+      color: 0xFFFFFF,  // White to show texture colors
+      emissive: 0xFFD700,
+      emissiveIntensity: 0.5
     })
 
     // Create sun mesh
@@ -218,43 +236,13 @@ export class HeliocentricViewManager {
   }
 
   /**
-   * Create Earth's circular orbit path at 1 AU
+   * DEPRECATED: Create Earth's circular orbit path at 1 AU
+   * No longer showing orbit rings - only asteroid trajectories will be shown
    */
   createEarthOrbit() {
-    console.log("🌍 Creating Earth's orbit...")
-
-    // Create orbit path (circle at 1 AU)
-    const orbitRadius = this.AU / this.SCENE_SCALE
-    const segments = 256
-
-    console.log(`  - Orbit radius: ${orbitRadius} scene units`)
-    console.log(`  - 1 AU = ${this.AU} km`)
-    console.log(`  - Scene scale: 1 unit = ${this.SCENE_SCALE} km`)
-
-    const orbitGeometry = new THREE.BufferGeometry()
-    const orbitPoints = []
-
-    for (let i = 0; i <= segments; i++) {
-      const angle = (i / segments) * Math.PI * 2
-      const x = Math.cos(angle) * orbitRadius
-      const z = Math.sin(angle) * orbitRadius
-      orbitPoints.push(new THREE.Vector3(x, 0, z))
-    }
-
-    orbitGeometry.setFromPoints(orbitPoints)
-
-    // Orbit line material
-    const orbitMaterial = new THREE.LineBasicMaterial({
-      color: 0x4A90E2,
-      opacity: 0.8,
-      transparent: true,
-      linewidth: 2
-    })
-
-    this.earthOrbitLine = new THREE.Line(orbitGeometry, orbitMaterial)
-    this.scene.add(this.earthOrbitLine)
-
-    console.log(`  ✅ Earth orbit created and added to scene`)
+    console.log("🌍 Skipping Earth orbit ring (showing labels only)")
+    // Don't create orbit rings anymore
+    this.earthOrbitLine = null
   }
 
   /**
@@ -267,20 +255,72 @@ export class HeliocentricViewManager {
     const orbitRadius = this.AU / this.SCENE_SCALE
 
     // Create Earth sphere
-    const earthGeometry = new THREE.SphereGeometry(earthRadius, 32, 32)
+    const earthGeometry = new THREE.SphereGeometry(earthRadius, 64, 64)
 
-    // Blue Earth with good visibility
+    // Load Earth texture
+    const textureLoader = new THREE.TextureLoader()
+    const earthTexture = textureLoader.load('/assets/earth.jpg',
+      (texture) => {
+        console.log("  ✅ Earth texture loaded")
+        texture.minFilter = THREE.LinearMipMapLinearFilter
+        texture.magFilter = THREE.LinearFilter
+      },
+      undefined,
+      (error) => {
+        console.warn("  ⚠️ Could not load Earth texture, using fallback color")
+      }
+    )
+
+    // Earth material with texture
     const earthMaterial = new THREE.MeshPhongMaterial({
-      color: 0x2E7FFF,
-      emissive: 0x112244,
-      emissiveIntensity: 0.2,
-      shininess: 30
+      map: earthTexture,
+      shininess: 10,
+      specular: 0x222222
     })
 
     this.orbitalEarth = new THREE.Mesh(earthGeometry, earthMaterial)
     this.orbitalEarth.name = 'Earth'
 
-    // Position Earth on its orbit (start at 90 degrees for visibility)
+    // Add atmosphere glow
+    const atmosphereGeometry = new THREE.SphereGeometry(earthRadius * 1.02, 64, 64)
+    const atmosphereMaterial = new THREE.MeshPhongMaterial({
+      color: 0x4488ff,
+      transparent: true,
+      opacity: 0.1,
+      side: THREE.BackSide
+    })
+    const atmosphere = new THREE.Mesh(atmosphereGeometry, atmosphereMaterial)
+    this.orbitalEarth.add(atmosphere)
+
+    // Add Earth label - LARGE VERSION
+    const canvas = document.createElement('canvas')
+    const context = canvas.getContext('2d')
+    canvas.width = 1024
+    canvas.height = 256
+    context.font = 'Bold 180px Arial'
+    context.fillStyle = 'rgba(255, 255, 255, 1.0)'
+    context.textAlign = 'center'
+    context.textBaseline = 'middle'
+    context.fillText('Earth', 512, 128)
+
+    const labelTexture = new THREE.CanvasTexture(canvas)
+    const labelMaterial = new THREE.SpriteMaterial({
+      map: labelTexture,
+      transparent: true,
+      opacity: 1.0,
+      depthTest: false,
+      sizeAttenuation: true
+    })
+
+    const earthLabel = new THREE.Sprite(labelMaterial)
+    // MASSIVE scale matching other planets
+    const baseScale = 100
+    const orbitScale = Math.sqrt(1.0)  // Earth at 1 AU
+    earthLabel.scale.set(baseScale * orbitScale, baseScale * orbitScale * 0.25, 1)
+    earthLabel.position.set(0, earthRadius * 2, 0)  // Directly above
+    this.orbitalEarth.add(earthLabel)
+
+    // Position Earth on its orbit (will be updated with Horizons data)
     this.earthOrbitalAngle = Math.PI / 2
     this.orbitalEarth.position.set(
       Math.cos(this.earthOrbitalAngle) * orbitRadius,
@@ -291,6 +331,75 @@ export class HeliocentricViewManager {
     this.scene.add(this.orbitalEarth)
 
     console.log(`  ✅ Earth positioned on orbit at (${this.orbitalEarth.position.x.toFixed(2)}, ${this.orbitalEarth.position.y.toFixed(2)}, ${this.orbitalEarth.position.z.toFixed(2)})`)
+  }
+
+  /**
+   * Create all planets in the solar system
+   * @param {boolean} useTextures - Whether to load NASA textures
+   * @returns {Promise} Resolves when all planets are created
+   */
+  async createAllPlanets(useTextures = true) {
+    if (this.planetsCreated) {
+      console.log("⚠️ Planets already created, skipping...")
+      return
+    }
+
+    console.log("🪐 Creating all planets in the solar system...")
+
+    try {
+      // Create planets using PlanetManager
+      await this.planetManager.createAllPlanets(useTextures)
+      this.planetsCreated = true
+
+      // Earth is special - we manage it separately for the NEO encounter
+      // So we store a reference to the planet manager's Earth if it exists
+      const earthFromManager = this.planetManager.getPlanet('earth')
+      if (earthFromManager && !this.orbitalEarth) {
+        this.orbitalEarth = earthFromManager
+      }
+
+      console.log("✅ All planets created successfully")
+    } catch (error) {
+      console.error("❌ Error creating planets:", error)
+      // Continue without planets - simulation can still work
+    }
+  }
+
+  /**
+   * Update planet positions from backend Horizons data
+   * @param {Object} planetsData - Planet position data from backend
+   */
+  updatePlanetPositions(planetsData) {
+    if (!this.planetManager || !planetsData) return
+
+    console.log("🔄 Updating planet positions from backend data...")
+    this.planetManager.updatePlanetPositions(planetsData)
+
+    // Special handling for Earth if it's managed separately
+    if (planetsData.earth && this.orbitalEarth) {
+      const earthData = planetsData.earth
+      const x = earthData.position[0] / this.SCENE_SCALE
+      const y = earthData.position[1] / this.SCENE_SCALE
+      const z = earthData.position[2] / this.SCENE_SCALE
+      this.orbitalEarth.position.set(x, y, z)
+    }
+  }
+
+  /**
+   * Position all planets at a specific time
+   * @param {Date} time - Time for planet positions
+   * @param {Function} fetchCallback - Optional callback to fetch from Horizons
+   */
+  async positionPlanetsAtTime(time, fetchCallback = null) {
+    if (!this.planetManager) return
+
+    console.log(`🕐 Positioning all planets at ${time}...`)
+    await this.planetManager.positionPlanetsAtTime(time, fetchCallback)
+
+    // Also update Earth if managed separately
+    if (this.orbitalEarth) {
+      this.positionEarthAtTime(time)
+    }
   }
 
   /**
@@ -552,6 +661,12 @@ export class HeliocentricViewManager {
    * Clear all heliocentric objects from scene
    */
   clearHeliocentricObjects() {
+    // Clean up all planets first
+    if (this.planetManager) {
+      this.planetManager.dispose()
+      this.planetsCreated = false
+    }
+
     // Remove Sun
     if (this.sun) {
       this.scene.remove(this.sun)

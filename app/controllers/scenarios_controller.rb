@@ -6,6 +6,23 @@ class ScenariosController < ApplicationController
     Rails.logger.info "🎯 Starting simulation..."
     Rails.logger.info "   Parameters: #{params.inspect}"
 
+    # Special case: if fetch_planets_only is true, just return planet positions
+    if params[:fetch_planets_only]
+      Rails.logger.info "🪐 Fetching planet positions only..."
+      encounter_time = params[:encounter_time] ? Time.parse(params[:encounter_time]) : Time.current
+
+      result = {
+        ok: true,
+        visualization: {
+          planets: fetch_planetary_positions(encounter_time)
+        }
+      }
+
+      Rails.logger.info "✅ Returning #{result[:visualization][:planets].keys.count} planet positions"
+      render json: result
+      return
+    end
+
     # Build simulation parameters
     sim_params = build_simulation_params
 
@@ -20,6 +37,13 @@ class ScenariosController < ApplicationController
       elsif result[:near_miss]
         Rails.logger.info "🌍 NEAR MISS - Closest approach: #{result.dig(:results, :miss_distance_km)} km"
       end
+    end
+
+    # Enhance visualization data with planetary positions
+    if result[:ok] && sim_params[:encounter_time]
+      result[:visualization] ||= {}
+      result[:visualization][:planets] = fetch_planetary_positions(sim_params[:encounter_time])
+      Rails.logger.info "🪐 Added planetary positions for #{result[:visualization][:planets].keys.count} planets"
     end
 
     # Optionally persist Scenario
@@ -96,5 +120,28 @@ class ScenariosController < ApplicationController
     )
   rescue => e
     Rails.logger.warn "⚠️  Failed to persist scenario: #{e.message}"
+  end
+
+  def fetch_planetary_positions(encounter_time)
+    # Fetch planetary positions from Horizons API or use fallback
+    horizons_service = HorizonsApiService.new
+    planets = horizons_service.fetch_all_planets(encounter_time)
+
+    # Convert to frontend-friendly format
+    planet_data = {}
+    planets.each do |name, position|
+      planet_data[name] = {
+        position: [position[:x_km], position[:y_km], position[:z_km]],
+        position_au: [position[:x_au], position[:y_au], position[:z_au]],
+        velocity: [position[:vx_kms], position[:vy_kms], position[:vz_kms]],
+        fallback: position[:fallback] || false
+      }
+    end
+
+    planet_data
+  rescue => e
+    Rails.logger.warn "⚠️  Failed to fetch planetary positions: #{e.message}"
+    # Return empty hash as fallback - frontend will use defaults
+    {}
   end
 end
