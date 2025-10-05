@@ -651,7 +651,6 @@ input[type="number"]:focus, select:focus{
   }
 }
 
-/* Botón tuerca */
 .settings-btn{
   display: inline-grid; place-items: center;
   width: var(--toggle-size); height: var(--toggle-size);
@@ -715,7 +714,6 @@ input[type="number"]:focus, select:focus{
 .settings-item .material-icons-outlined{ font-size: 20px; opacity: .95; }
 .settings-label{ font-size: 14px; letter-spacing: .2px; }
 
-/* Estado abierto: rotación de tuerca + drop-up visible */
 .settings-menu[data-sidebar-open-value="true"] .settings-dropdown{
   opacity: 1;
   pointer-events: auto;
