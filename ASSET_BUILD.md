@@ -40,10 +40,14 @@ RUN if ! grep -q 'pin "d3"' config/importmap.rb; then \
 # Update stimulus manifest
 RUN ./bin/rails stimulus:manifest:update || true
 
-# Precompiling assets for production
-RUN SECRET_KEY_BASE_DUMMY=1 \
+# Precompiling assets for production without database or credentials
+RUN RAILS_ENV=production \
     DATABASE_URL="postgresql://dummy:dummy@localhost:5432/dummy" \
+    SECRET_KEY_BASE="dummy-secret-key-base-for-asset-precompilation-only-not-for-production-use" \
     ./bin/rails assets:clobber && \
+    RAILS_ENV=production \
+    DATABASE_URL="postgresql://dummy:dummy@localhost:5432/dummy" \
+    SECRET_KEY_BASE="dummy-secret-key-base-for-asset-precompilation-only-not-for-production-use" \
     ./bin/rails assets:precompile
 ```
 

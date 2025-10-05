@@ -28,6 +28,10 @@ puts "🧹 Cleaning existing assets..."
 system("RAILS_ENV=development bin/rails assets:clobber") or raise "Failed to clean assets"
 
 puts "🏗️  Precompiling assets for development..."
-system("RAILS_ENV=development bin/rails assets:precompile") or raise "Failed to precompile assets"
+ENV["RAILS_ENV"] = "development"
+ENV["SECRET_KEY_BASE"] = "dummy-secret-key-base-for-asset-precompilation-only-not-for-production-use"
+ENV["DATABASE_URL"] = "postgresql://dummy:dummy@localhost:5432/dummy" if ENV["RAILS_ENV"] == "production"
+ENV["DISABLE_DATABASE_ENVIRONMENT_CHECK"] = "1"
+system("bin/rails assets:precompile") or raise "Failed to precompile assets"
 
 puts "✅ Development asset build completed successfully!"

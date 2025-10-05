@@ -25,6 +25,9 @@ end
 
 # Clean and precompile assets
 puts "🧹 Cleaning existing assets..."
+ENV["RAILS_ENV"] = "production"
+ENV["SECRET_KEY_BASE"] = "dummy-secret-key-base-for-asset-precompilation-only-not-for-production-use"
+ENV["DATABASE_URL"] = "postgresql://dummy:dummy@localhost:5432/dummy"
 system("bin/rails assets:clobber") or raise "Failed to clean assets"
 
 puts "🏗️  Precompiling assets..."
