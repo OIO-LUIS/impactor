@@ -7,7 +7,3 @@ import { application } from "controllers/application"
 // Eager load all controllers defined in the import map under controllers
 import { eagerLoadControllersFrom } from "@hotwired/stimulus-loading"
 eagerLoadControllersFrom("controllers", application)
-
-// Eager load services
-import { eagerLoadControllersFrom as eagerLoadServicesFrom } from "@hotwired/stimulus-loading"
-eagerLoadServicesFrom("services", application)

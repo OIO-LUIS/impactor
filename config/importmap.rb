@@ -5,18 +5,7 @@ pin "@hotwired/turbo-rails", to: "turbo.min.js"
 pin "@hotwired/stimulus", to: "stimulus.min.js"
 pin "@hotwired/stimulus-loading", to: "stimulus-loading.js"
 pin_all_from "app/javascript/controllers", under: "controllers"
-
-# Explicit pins to ensure proper asset resolution in production
-# These override pin_all_from for more reliable asset hash resolution
-pin "controllers/application", to: "controllers/application.js"
-pin "controllers/cesium_controller", to: "controllers/cesium_controller.js"
-pin "controllers/cesium_impact_controller", to: "controllers/cesium_impact_controller.js"
-pin "controllers/earth_controller", to: "controllers/earth_controller.js"
-pin "controllers/hello_controller", to: "controllers/hello_controller.js"
-pin "controllers/impact_controller", to: "controllers/impact_controller.js"
-pin "controllers/index", to: "controllers/index.js"
-pin "controllers/neo_browser_controller", to: "controllers/neo_browser_controller.js"
-pin "controllers/neo_selector_controller", to: "controllers/neo_selector_controller.js"
+pin_all_from "app/javascript/services", under: "services"
 
 pin "three", to: "https://cdn.jsdelivr.net/npm/three@0.161.0/build/three.module.js"
 
