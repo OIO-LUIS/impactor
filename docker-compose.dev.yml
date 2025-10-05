@@ -1,0 +1,140 @@
+version: '3.8'
+
+services:
+  # PostgreSQL database for development
+  db:
+    image: postgres:15-alpine
+    restart: unless-stopped
+    ports:
+      - "5433:5432"  # Use different port to avoid conflicts with local PostgreSQL
+    volumes:
+      - postgres_dev_data:/var/lib/postgresql/data
+      - ./tmp/postgres_dumps:/dumps
+    environment:
+      POSTGRES_USER: postgres
+      POSTGRES_PASSWORD: postgres
+      POSTGRES_DB: prototipo_meteorito_development
+    healthcheck:
+      test: ["CMD-SHELL", "pg_isready -U postgres"]
+      interval: 10s
+      timeout: 5s
+      retries: 5
+
+  # Redis for development
+  redis:
+    image: redis:7-alpine
+    restart: unless-stopped
+    ports:
+      - "6380:6379"  # Use different port to avoid conflicts with local Redis
+    volumes:
+      - redis_dev_data:/data
+    command: redis-server --appendonly yes
+    healthcheck:
+      test: ["CMD", "redis-cli", "ping"]
+      interval: 10s
+      timeout: 5s
+      retries: 5
+
+  # Rails web application for development
+  web:
+    build:
+      context: .
+      dockerfile: Dockerfile.development
+    restart: unless-stopped
+    ports:
+      - "3000:3000"
+    volumes:
+      # Mount source code for live reloading
+      - .:/rails
+      # Mount bundle cache to speed up gem installation
+      - bundle_cache:/usr/local/bundle
+      # Mount node_modules if you have any
+      - node_modules:/rails/node_modules
+      # Mount specific directories to persist data
+      - ./log:/rails/log
+      - ./tmp:/rails/tmp
+      - ./storage:/rails/storage
+    environment:
+      RAILS_ENV: development
+      RAILS_MASTER_KEY: ${RAILS_MASTER_KEY}
+      # Development-specific settings
+      RAILS_LOG_TO_STDOUT: true
+      RAILS_MAX_THREADS: 5
+      WEB_CONCURRENCY: 1
+      PORT: 3000
+      # Database configuration
+      DATABASE_URL: postgres://postgres:postgres@db:5432/prototipo_meteorito_development
+      DATABASE_NAME: prototipo_meteorito_development
+      DATABASE_USERNAME: postgres
+      DATABASE_PASSWORD: postgres
+      DATABASE_HOST: db
+      DATABASE_PORT: 5432
+      # Enable debugging
+      RUBY_DEBUG: true
+    depends_on:
+      db:
+        condition: service_healthy
+      redis:
+        condition: service_healthy
+    stdin_open: true  # Enable interactive debugging
+    tty: true         # Enable TTY for debugging
+    command: |
+      bash -c "
+        bundle check || bundle install &&
+        rm -f tmp/pids/server.pid &&
+        ./bin/rails assets:precompile &&
+        ./bin/rails db:prepare &&
+        ./bin/rails server -b 0.0.0.0 -p 3000
+      "
+
+  # Mailcatcher for development email testing (optional)
+  mailcatcher:
+    image: sj26/mailcatcher
+    restart: unless-stopped
+    ports:
+      - "1080:1080"  # Web interface
+      - "1025:1025"  # SMTP server
+    profiles:
+      - with-mail
+
+  # Sidekiq for background jobs (optional)
+  sidekiq:
+    build:
+      context: .
+      dockerfile: Dockerfile.development
+    restart: unless-stopped
+    volumes:
+      - .:/rails
+      - bundle_cache:/usr/local/bundle
+    environment:
+      RAILS_ENV: development
+      RAILS_MASTER_KEY: ${RAILS_MASTER_KEY}
+      # Database configuration
+      DATABASE_URL: postgres://postgres:postgres@db:5432/prototipo_meteorito_development
+      DATABASE_NAME: prototipo_meteorito_development
+      DATABASE_USERNAME: postgres
+      DATABASE_PASSWORD: postgres
+      DATABASE_HOST: db
+      DATABASE_PORT: 5432
+    depends_on:
+      db:
+        condition: service_healthy
+      redis:
+        condition: service_healthy
+    command: bundle exec sidekiq
+    profiles:
+      - with-sidekiq
+
+volumes:
+  postgres_dev_data:
+    driver: local
+  redis_dev_data:
+    driver: local
+  bundle_cache:
+    driver: local
+  node_modules:
+    driver: local
+
+networks:
+  default:
+    name: prototipo_meteorito_development
