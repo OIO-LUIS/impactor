@@ -2,7 +2,6 @@
 // Run that command whenever you add a new controller or create them with
 // ./bin/rails generate stimulus controllerName
 
-console.log('Loading Stimulus controllers index...');
 import { application } from "./application"
 
 import CesiumController from "./cesium_controller"
@@ -25,5 +24,3 @@ application.register("neo-browser", NeoBrowserController)
 
 import NeoSelectorController from "./neo_selector_controller"
 application.register("neo-selector", NeoSelectorController)
-
-console.log('All Stimulus controllers registered. Available controllers:', application.controllersByName);
