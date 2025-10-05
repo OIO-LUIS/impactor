@@ -2,7 +2,7 @@
 pt:
   app:
     language: "Idioma"
-    footer: "Astro gatinhos"
+    footer: "Astromichis"
 
   home:
     hero:
@@ -32,7 +32,65 @@ pt:
         desc: "Conceitos-chave: elementos orbitais, energia de impacto e os conjuntos de dados da NASA e do USGS por trás da ferramenta."
         cta: "Em breve"
         aria_open: "Abrir Aprender e Explorar (em breve)"
-
+  sidebar:
+      panels_title: "Painéis"
+      inputs:
+        btn_title: "Parâmetros de Impacto"
+        panel_title: "Parâmetros de Impacto"
+        badge_html: "Motor de Física v%{version}"
+        neo_source: "Fonte de dados NEO"
+        neo_browse: "🔍 Explorar NEOs da NASA"
+        approach_date: "Data de aproximação:"
+        miss_distance: "Distância de passagem:"
+        orbit_heading: "🛰️ Elementos orbitais keplerianos"
+        e: "Excentricidade (e):"
+        a: "Semi-eixo maior (a):"
+        i: "Inclinação (i):"
+        node: "Nó ascendente (Ω):"
+        arg_peri: "Arg. do periélio (ω):"
+        M: "Anomalia média (M):"
+        diameter: "Diâmetro"
+        density: "Densidade"
+        velocity: "Velocidade"
+        impact_angle: "Ângulo de impacto"
+        strength: "Resistência do material"
+        azimuth: "Azimute de aproximação"
+        latitude: "Latitude"
+        longitude: "Longitude"
+        mitigation: "Mitigação"
+        mitigation_opts:
+          none: "Sem mitigação"
+          deflection: "Desvio cinético"
+          ablation: "Ablatação a laser"
+          nuclear: "Dispositivo nuclear"
+        run: "Executar simulação"
+        units:
+          m: "m"
+          kgm3: "kg/m³"
+          kms: "km/s"
+          deg: "°"
+          deg_from_n: "° desde N"
+          dash: "—"
+      results:
+        btn_title: "Análise de Impacto"
+        panel_title: "Análise de Impacto"
+        awaiting: "Aguardando"
+        primary_effects: "Efeitos primários"
+        impact_mode: "Modo de impacto"
+        energy_released: "Energia liberada"
+        crater_diameter: "Diâmetro da cratera"
+        damage_zones: "Zonas de dano"
+        vaporization: "Vaporização"
+        thermal: "Térmico"
+        blast: "Onda de choque"
+        tsunami: "Tsunami"
+        legend:
+          total: "Destruição total"
+          severe: "Danos severos"
+          major: "Danos maiores"
+          moderate: "Moderado"
+          thermal: "Térmico"
+          tsunami: "Tsunami"
   game:
     title: "Quiz de Mitigação"
     subtitle: "Responda 10 perguntas sob pressão. Aprenda ciência real sobre impactos e defesas contra asteroides."

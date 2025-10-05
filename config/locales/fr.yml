@@ -2,7 +2,7 @@
 fr:
   app:
     language: "Langue"
-    footer: "Chats astro"
+    footer: "Astromichis"
 
   home:
     hero:
@@ -32,6 +32,66 @@ fr:
         desc: "Concepts clés : éléments orbitaux, énergie d’impact et jeux de données NASA/USGS utilisés par l’outil."
         cta: "Bientôt"
         aria_open: "Ouvrir Apprendre & Explorer (bientôt)"
+
+  sidebar:
+      panels_title: "Panneaux"
+      inputs:
+        btn_title: "Paramètres d’impact"
+        panel_title: "Paramètres d’impact"
+        badge_html: "Moteur physique v%{version}"
+        neo_source: "Source de données NEO"
+        neo_browse: "🔍 Explorer les NEO de la NASA"
+        approach_date: "Date d’approche :"
+        miss_distance: "Distance de passage :"
+        orbit_heading: "🛰️ Éléments orbitaux képlériens"
+        e: "Excentricité (e) :"
+        a: "Demi-grand axe (a) :"
+        i: "Inclinaison (i) :"
+        node: "Nœud ascendant (Ω) :"
+        arg_peri: "Arg. du périhélie (ω) :"
+        M: "Anomalie moyenne (M) :"
+        diameter: "Diamètre"
+        density: "Densité"
+        velocity: "Vitesse"
+        impact_angle: "Angle d’impact"
+        strength: "Résistance du matériau"
+        azimuth: "Azimut d’approche"
+        latitude: "Latitude"
+        longitude: "Longitude"
+        mitigation: "Atténuation"
+        mitigation_opts:
+          none: "Aucune atténuation"
+          deflection: "Déviation cinétique"
+          ablation: "Ablation laser"
+          nuclear: "Dispositif nucléaire"
+        run: "Lancer la simulation"
+        units:
+          m: "m"
+          kgm3: "kg/m³"
+          kms: "km/s"
+          deg: "°"
+          deg_from_n: "° depuis N"
+          dash: "—"
+      results:
+        btn_title: "Analyse d’impact"
+        panel_title: "Analyse d’impact"
+        awaiting: "En attente"
+        primary_effects: "Effets principaux"
+        impact_mode: "Mode d’impact"
+        energy_released: "Énergie libérée"
+        crater_diameter: "Diamètre du cratère"
+        damage_zones: "Zones de dommages"
+        vaporization: "Vaporisation"
+        thermal: "Thermique"
+        blast: "Onde de choc"
+        tsunami: "Tsunami"
+        legend:
+          total: "Destruction totale"
+          severe: "Dégâts sévères"
+          major: "Dégâts majeurs"
+          moderate: "Modéré"
+          thermal: "Thermique"
+          tsunami: "Tsunami"
 
   game:
     title: "Quiz de Mitigation"
