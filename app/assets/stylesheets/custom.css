@@ -1,0 +1,499 @@
+/* ───────────────────────────────────────────────────────────────────────────
+    Design tokens
+   ─────────────────────────────────────────────────────────────────────────── */
+:root {
+  --bg1: #0b0f19;
+  --bg2: #000000;
+  --card: #141a27;
+  --card-hover: #1b2436;
+  --text: #e6eefc;
+  --muted: #9fb0d0;
+  --accent-1: #58a6ff;   /* Simulation */
+  --accent-2: #22c55e;   /* Mitigation/Gaming */
+  --accent-3: #a78bfa;   /* Learn */
+  --ring-ok: #3b82f6;
+}
+
+* { box-sizing: border-box; }
+html, body { height: 100%; }
+
+/* Base page background and typography.
+   Body is a stacking context to keep the 3D canvas behind content. */
+body {
+  margin: 0;
+  background: #000; /* solid black to match canvas */
+  color: var(--text);
+  font-family: ui-sans-serif, system-ui, -apple-system, Segoe UI, Roboto, Helvetica, Arial, "Apple Color Emoji", "Segoe UI Emoji";
+  line-height: 1.4;
+  position: relative;
+  z-index: 0;
+}
+
+
+
+/* Fullscreen WebGL background layer (fixed, non-interactive). */
+.bg-canvas {
+  position: fixed;
+  inset: 0;
+  z-index: 0;
+}
+
+/* Foreground content area above the canvas. */
+.content {
+  position: relative;
+  z-index: 1;
+}
+
+/* ───────────────────────────────────────────────────────────────────────────
+    Layout
+   ─────────────────────────────────────────────────────────────────────────── */
+.container {
+  min-height: 100vh;
+  display: grid;
+  grid-template-rows: auto 1fr auto;
+}
+
+.header {
+  padding: 28px 16px 8px;
+  display: flex;
+  align-items: center;
+  justify-content: center;
+}
+
+.header__inner {
+  max-width: 1100px;
+  width: 100%;
+  display: flex;
+  align-items: baseline;
+  gap: 16px;
+}
+
+.brand { font-size: 28px; font-weight: 800; letter-spacing: .3px; }
+
+.badge {
+  font-size: 12px;
+  color: var(--muted);
+  border: 1px solid #273044;
+  padding: 3px 8px;
+  border-radius: 999px;
+}
+
+.hero {
+  display: grid;
+  place-items: center;
+  padding: 24px 16px 12px;
+  text-align: center;
+}
+
+.hero__title {
+  font-size: clamp(28px, 4vw, 42px);
+  font-weight: 800;
+  margin: 0 0 8px;
+}
+
+.hero__subtitle {
+  color: var(--muted);
+  max-width: 780px;
+  margin: 0 auto;
+  font-size: 16px;
+}
+
+.grid {
+  padding: 28px 16px 56px;
+  display: grid;
+  grid-template-columns: 1fr;
+  gap: 16px;
+  max-width: 1100px;
+  width: 100%;
+  margin: 0 auto;
+}
+
+/* Desktop columns */
+@media (min-width: 860px) {
+  .grid { grid-template-columns: repeat(3, 1fr); }
+}
+
+/* Optional: enforce equal height across cards */
+.grid > .card { grid-template-rows: auto auto 1fr auto; }
+
+/* ───────────────────────────────────────────────────────────────────────────
+    Cards (glass look with gradient border)
+   ─────────────────────────────────────────────────────────────────────────── */
+.card {
+  position: relative;
+  text-decoration: none;
+  color: inherit;
+  outline: none;
+
+  display: grid;
+  gap: 10px;
+  padding: 22px 20px;
+  border-radius: 20px;
+
+  /* Glass + subtle gradient border */
+  background: linear-gradient(180deg, rgba(20,26,39,.72), rgba(12,16,26,.58));
+  border: 1px solid rgba(40, 60, 92, .55);
+  box-shadow:
+    0 20px 40px rgba(0,0,0,.35),
+    inset 0 1px 0 rgba(255,255,255,.04);
+  backdrop-filter: blur(6px);
+  -webkit-backdrop-filter: blur(6px);
+
+  transition:
+    transform .18s ease,
+    box-shadow .18s ease,
+    border-color .18s ease,
+    background-color .18s ease;
+}
+
+@media (prefers-reduced-motion: reduce) {
+  .card { transition: none; }
+}
+
+/* Outer gradient border mask */
+.card::before {
+  content: "";
+  position: absolute;
+  inset: 0;
+  border-radius: 20px;
+  padding: 1px;
+  background: linear-gradient(140deg, rgba(88,166,255,.35), rgba(167,139,250,.22), rgba(34,197,94,.22));
+  /*-webkit-mask: linear-gradient(#000 0 0) content-box, linear-gradient(#000 0 0);*/
+  -webkit-mask-composite: xor;
+  mask-composite: exclude;
+  pointer-events: none;
+  opacity: .8;
+}
+
+/* Hover/focus elevation */
+.card:hover,
+.card:focus-visible {
+  transform: translateY(-3px);
+  border-color: rgba(80,120,170,.7);
+  box-shadow:
+    0 26px 60px rgba(0,0,0,.45),
+    inset 0 1px 0 rgba(255,255,255,.06);
+}
+
+/* Accessible focus ring */
+.card:focus-visible {
+  box-shadow:
+    0 0 0 3px color-mix(in oklab, var(--ring-ok) 50%, transparent),
+    0 26px 60px rgba(0,0,0,.45);
+}
+
+/* Card header (pill + status tag) */
+.card__head {
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  gap: 10px;
+}
+
+.card__pill {
+  display: inline-grid;
+  place-items: center;
+  height: 36px;
+  min-width: 52px;
+  padding: 0 10px;
+  font-weight: 800;
+  letter-spacing: .3px;
+  border-radius: 12px;
+  background: #1e2636;
+  color: #cfe6ff; /* overridden by type accent below */
+  box-shadow: inset 0 -2px 0 rgba(0,0,0,.2);
+}
+
+.card__tag {
+  font-size: 12px;
+  color: #aabbd6;
+  border: 1px solid #2a3651;
+  padding: 4px 8px;
+  border-radius: 999px;
+}
+
+/* Titles & copy */
+.card__title {
+  font-size: 22px;
+  font-weight: 800;
+  margin: 2px 0 2px;
+  letter-spacing: .2px;
+}
+
+.card__desc  {
+  margin: 0;
+  color: var(--muted);
+  font-size: 14.5px;
+  line-height: 1.55;
+  min-height: 56px;
+}
+
+.card__cta   { margin-top: 6px; font-size: 14px; opacity: .95; }
+
+/* Type accents */
+.card--sim .card__pill { background: color-mix(in oklab, var(--accent-1) 24%, #0b0f19); color: var(--accent-1); }
+.card--mit .card__pill { background: color-mix(in oklab, var(--accent-2) 24%, #0b0f19); color: var(--accent-2); }
+.card--edu .card__pill { background: color-mix(in oklab, var(--accent-3) 24%, #0b0f19); color: var(--accent-3); }
+
+/* “Coming soon” state */
+.card--soon { cursor: default; }
+.card--soon .card__cta { color: #8ea0be; }
+.card--soon:hover { transform: none; }
+
+/* Desktop density */
+@media (min-width: 860px) {
+  .card { padding: 24px 22px; }
+  .card__title { font-size: 24px; }
+}
+
+/* Subtle glow on pill on hover */
+.card:hover .card__pill {
+  box-shadow: 0 0 18px color-mix(in oklab, currentColor 30%, transparent);
+}
+
+/* ───────────────────────────────────────────────────────────────────────────
+    Footer
+   ─────────────────────────────────────────────────────────────────────────── */
+.footer {
+  background: transparent;        /* transparent background */
+  color: var(--muted);            /* keep readable text color */
+  font-size: 12px;
+  padding: 16px;
+  text-align: center;
+  box-shadow: none;               /* ensure no shadow tint */
+  border-top: none;               /* in case a top border was added elsewhere */
+}
+
+/* ───────────────────────────────────────────────────────────────────────────
+    Accessibility: skip link
+   ─────────────────────────────────────────────────────────────────────────── */
+.skip-link {
+  position: absolute;
+  left: -9999px; top: auto;
+  width: 1px; height: 1px;
+  overflow: hidden;
+}
+
+.skip-link:focus {
+  position: fixed;
+  left: 16px; top: 16px;
+  width: auto; height: auto;
+  padding: 8px 12px;
+  background: #0d1117;
+  border: 1px solid #273044;
+  border-radius: 8px;
+  z-index: 9999;
+}
+
+
+/* ───────────────────────────────────────────────────────────────────────────
+   ABOUT grid + interactive cards
+   ─────────────────────────────────────────────────────────────────────────── */
+.about-grid {
+  padding: 24px 16px 64px;
+  display: grid;
+  grid-template-columns: 1fr;
+  gap: 16px;
+  max-width: 1100px;
+  margin: 0 auto;
+}
+
+@media (min-width: 720px) {
+  .about-grid { grid-template-columns: repeat(2, 1fr); }
+}
+@media (min-width: 1040px) {
+  .about-grid { grid-template-columns: repeat(3, 1fr); }
+}
+
+/* Base de la card ya usa .card; extendemos comportamiento hover/overlay */
+.about-card {
+  position: relative;
+  overflow: hidden; /* ocultar overlay hasta hover */
+  transform: translateZ(0); /* habilita GPU */
+  transition: transform .2s ease, box-shadow .2s ease, border-color .2s ease;
+  cursor: default;
+}
+
+.about-card:focus-visible,
+.about-card:hover {
+  transform: scale(1.03);
+  border-color: rgba(110,150,210,.75);
+  box-shadow:
+    0 28px 60px rgba(0,0,0,.45),
+    inset 0 1px 0 rgba(255,255,255,.06);
+}
+
+/* Contenido “front” */
+.about-card__body {
+  display: grid;
+  gap: 8px;
+  min-height: 180px;
+}
+.about-card__icon { font-size: 28px; opacity: .95; }
+.about-card__title {
+  font-size: 20px; font-weight: 800; margin: 0;
+}
+.about-card__teaser {
+  margin: 0; color: var(--muted); font-size: 14px; line-height: 1.55;
+}
+
+/* Overlay que aparece en hover/focus con blur sutil */
+.about-card__overlay {
+  position: absolute;
+  inset: 0;
+  display: grid;
+  align-content: center;
+  gap: 8px;
+  padding: 22px;
+  text-align: left;
+  background: radial-gradient(120% 120% at 50% 20%, rgba(16,24,38,.86), rgba(10,14,24,.86));
+  opacity: 0;
+  transform: scale(1.08);
+  transition: opacity .22s ease, transform .22s ease;
+  border-radius: 20px;
+  backdrop-filter: blur(4px);
+  -webkit-backdrop-filter: blur(4px);
+}
+
+.about-card:hover .about-card__overlay,
+.about-card:focus-visible .about-card__overlay {
+  opacity: 1;
+  transform: scale(1.0);
+}
+
+.about-card__overlay h3 {
+  margin: 0 0 4px;
+  font-size: 18px;
+  font-weight: 800;
+}
+.about-card__overlay p {
+  margin: 0;
+  color: #cfe6ff;
+  font-size: 14.5px;
+  line-height: 1.6;
+}
+
+/* Prefiere menos movimiento */
+@media (prefers-reduced-motion: reduce) {
+  .about-card,
+  .about-card__overlay { transition: none; }
+  .about-card:hover { transform: none; }
+}
+
+/* ───────────────────────────────────────────────────────────────────────────
+   NAVBAR (glass + sticky)
+   ─────────────────────────────────────────────────────────────────────────── */
+.nav {
+  position: sticky;
+  top: 0;
+  z-index: 50;
+  backdrop-filter: blur(8px);
+  -webkit-backdrop-filter: blur(8px);
+  background: linear-gradient(180deg, rgba(10,14,24,.72), rgba(10,14,24,.42));
+  border-bottom: 1px solid rgba(40,60,92,.45);
+  box-shadow: 0 10px 30px rgba(0,0,0,.25), inset 0 1px 0 rgba(255,255,255,.03);
+}
+
+.nav__inner {
+  max-width: 1100px;
+  margin: 0 auto;
+  padding: 10px 16px;
+  display: grid;
+  grid-template-columns: 1fr auto auto;
+  align-items: center;
+  gap: 12px;
+}
+
+/* Brand link */
+.brand-link {
+  display: inline-flex;
+  align-items: center;
+  gap: 6px;
+  font-size: 20px;
+  font-weight: 800;
+  letter-spacing: .3px;
+  color: var(--text);
+  text-decoration: none;
+  transition: color .18s ease, transform .18s ease;
+}
+.brand-link:hover,
+.brand-link:focus-visible {
+  color: var(--accent-1);
+  transform: translateY(-1px);
+}
+.brand-link:focus-visible {
+  outline: 2px solid var(--accent-1);
+  outline-offset: 4px;
+  border-radius: 6px;
+}
+.brand-text { display: inline-block; }
+
+/* Links */
+.nav__links {
+  list-style: none;
+  display: flex;
+  gap: 10px;
+  margin: 0;
+  padding: 0;
+}
+.nav__link {
+  display: inline-flex;
+  align-items: center;
+  height: 36px;
+  padding: 0 12px;
+  border-radius: 999px;
+  color: #cfe6ff;
+  text-decoration: none;
+  font-weight: 600;
+  font-size: 14px;
+  border: 1px solid transparent;
+  transition: background-color .18s ease, border-color .18s ease, color .18s ease, transform .18s ease;
+}
+.nav__link:hover,
+.nav__link:focus-visible {
+  background: #0e1523;
+  border-color: #2a3651;
+  color: #e6eefc;
+}
+.nav__link.is-active {
+  background: color-mix(in oklab, var(--accent-1) 20%, #0b0f19);
+  border-color: color-mix(in oklab, var(--accent-1) 55%, #26334b);
+  color: #eaf3ff;
+  box-shadow: 0 0 18px color-mix(in oklab, var(--accent-1) 22%, transparent);
+}
+
+/* Idioma */
+.lang-switcher {
+  margin-left: auto;
+  display: inline-flex;
+  align-items: center;
+  gap: 8px;
+}
+.lang-label {
+  font-size: 12px;
+  color: var(--muted);
+}
+.lang-select {
+  background: #0d1117;
+  color: var(--text);
+  border: 1px solid #273044;
+  border-radius: 999px;
+  padding: 6px 10px;
+  height: 32px;
+}
+
+/* Responsive */
+@media (max-width: 680px) {
+  .nav__inner {
+    grid-template-columns: 1fr auto;
+    grid-template-rows: auto auto;
+    row-gap: 8px;
+  }
+  .nav__links {
+    grid-column: 1 / -1;
+    justify-content: center;
+  }
+  .lang-switcher {
+    justify-self: end;
+  }
+}

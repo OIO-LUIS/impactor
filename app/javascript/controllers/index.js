@@ -2,3 +2,7 @@
 import { application } from "controllers/application"
 import { eagerLoadControllersFrom } from "@hotwired/stimulus-loading"
 eagerLoadControllersFrom("controllers", application)
+
+
+import EarthController from "./earth_controller"
+application.register("earth", EarthController)

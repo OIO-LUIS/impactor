@@ -1,4 +1,62 @@
-<div>
-  <h1>Welcome to the Impactor 2025 Project</h1>
-  <p>Your gateway to asteroid impact data and analysis.</p  
+<div
+  data-controller="earth"
+  data-earth-target="mount"
+  data-earth-earth-url-value="<%= asset_path('earth_day.jpg') %>"
+  data-earth-satellite-url-value="<%= asset_path('satellite.png') %>"
+  class="bg-canvas">
+</div>
+
+<div class="container content" id="main">
+  <%= render "layouts/navbar" %>
+
+  <section class="hero hero--xl" aria-labelledby="hero-title">
+    <div class="hero__wrap">
+      <p class="hero__eyebrow"><%= t("home.hero.eyebrow") %></p>
+      <h1 id="hero-title" class="hero__title">
+        <%= t("home.hero.title_html").html_safe %>
+      </h1>
+      <p class="hero__subtitle"><%= t("home.hero.subtitle") %></p>
+    </div>
+  </section>
+
+  <section id="cards" class="grid" aria-label="<%= t('home.cards.aria') %>">
+    <!-- Impact Simulation (LIVE) -->
+    <%= link_to "#", class: "card card--sim", aria: { label: t("home.cards.sim.aria_open") } do %>
+      <div class="card__head">
+        <span class="card__pill"><%= t("home.cards.sim.pill") %></span>
+        <span class="card__tag"><%= t("home.cards.sim.status") %></span>
+      </div>
+      <h2 class="card__title"><%= t("home.cards.sim.title") %></h2>
+      <p class="card__desc"><%= t("home.cards.sim.desc") %></p>
+      <span class="card__cta"><%= t("home.cards.sim.cta") %></span>
+    <% end %>
+
+    <!-- Mitigation (Gaming) -->
+    <%= link_to "#", class: "card card--mit", aria: { label: "Open Mitigation Quiz Game" } do %>
+      <div class="card__head">
+        <span class="card__pill">MIT</span>
+        <span class="card__tag">Game</span>
+      </div>
+      <h2 class="card__title"><%= t("game.title", default: "Mitigation Quiz") %></h2>
+      <p class="card__desc">
+        <%= t("game.subtitle", default: "Answer 10 questions under pressure. Learn real science behind asteroid impacts & defenses.") %>
+      </p>
+      <span class="card__cta"><%= t("game.start", default: "Play →") %></span>
+    <% end %>
+
+    <!-- Learn & Explore -->
+    <%= link_to "#", class: "card card--edu card--soon", aria: { label: t("home.cards.learn.aria_open") } do %>
+      <div class="card__head">
+        <span class="card__pill"><%= t("home.cards.learn.pill") %></span>
+        <span class="card__tag"><%= t("home.cards.learn.status") %></span>
+      </div>
+      <h2 class="card__title"><%= t("home.cards.learn.title") %></h2>
+      <p class="card__desc"><%= t("home.cards.learn.desc") %></p>
+      <span class="card__cta"><%= t("home.cards.learn.cta") %></span>
+    <% end %>
+  </section>
+
+  <footer class="footer" role="contentinfo">
+    <%= t("app.footer") %>
+  </footer>
 </div>

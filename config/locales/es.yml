@@ -1,0 +1,231 @@
+# config/locales/es.yml
+es:
+  app:
+    language: "Idioma"
+    footer: "Astro michis"
+
+  home:
+    hero:
+      eyebrow: "NASA Space Apps 2025"
+      title_html: "Explora impactos <span class=\"gradient-text\">&amp; defiende la Tierra</span>"
+      subtitle: "Simula escenarios, estima consecuencias y prueba estrategias de mitigación usando datos reales de NASA y USGS."
+    cards:
+      aria: "Acciones principales"
+      sim:
+        pill: "SIM"
+        status: "Activo"
+        title: "Simulación de Impacto"
+        desc: "Configura tamaño, velocidad y punto de impacto. Obtén energía, tamaño de cráter y ondas de choque."
+        cta: "Iniciar →"
+        aria_open: "Abrir Simulación de Impacto"
+      mit:
+        pill: "MIT"
+        status: "Juego"
+        title: "Mitigación (Juego)"
+        desc: "Aplica Δv a lo largo de la órbita con tiempo de antelación y mira si puedes desviar el Impactor-2025."
+        cta: "Jugar →"
+        aria_open: "Abrir Mitigación/Juego"
+      learn:
+        pill: "LEARN"
+        status: "Próximamente"
+        title: "Aprender y Explorar"
+        desc: "Conceptos clave: elementos orbitales, energía de impacto y los conjuntos de datos de NASA y USGS detrás de la herramienta."
+        cta: "Próximamente"
+        aria_open: "Abrir Aprender y Explorar (próximamente)"
+
+  game:
+    title: "Quiz de Mitigación"
+    subtitle: "Responde 10 preguntas bajo presión. Aprende ciencia real sobre impactos y defensas contra asteroides."
+    start: "Jugar →"
+    ui:
+      title: "Quiz de Mitigación"
+      brief: "Responde 10 preguntas científicamente fundamentadas sobre impactos de asteroides y estrategias de defensa."
+      rules: "Tienes 25 segundos por pregunta. Más rápido = más puntos. Recibirás retroalimentación científica al final."
+      play_now: "Comenzar"
+      progress: "Pregunta %{idx} de %{total}"
+      score: "Puntaje"
+      choose_action: "Elige tu acción"
+      choose_cta: "Elegir"
+      summary_title: "Resumen de la misión"
+      final_score: "Puntaje final"
+      correct: "Correcta"
+      level:
+        novice: "Nivel: Principiante"
+        intermediate: "Nivel: Intermedio"
+        advanced: "Nivel: Avanzado"
+        expert: "Nivel: Experto"
+      review: "Revisar tus respuestas"
+      difficulty: "Dificultad"
+      your_answer: "Tu respuesta"
+      correct_yes: "Correcto"
+      correct_no: "Incorrecto"
+      time: "Tiempo"
+      retry: "Jugar de nuevo"
+      back_home: "Volver al inicio"
+      no_questions: "El banco de preguntas está vacío. Agrega más preguntas."
+      restarted: "Sesión reiniciada."
+      no_current_question: "No hay pregunta disponible."
+    q:
+      energy:
+        prompt: "Un objeto de ~120 m y ρ≈3000 kg/m³ viajando a 20 km/s libera aproximadamente…"
+
+  game_data:
+    scenarios:
+      - id: "s1"
+        title: "Asteroide de 120 m, 5 días hasta el impacto"
+        desc: "Aproximación cercana a una ciudad de 1 millón de habitantes."
+        population: 1000000
+        options:
+          - key: evacuate
+            label: "Evacuar 40% de la población"
+            effects:
+              saved_pct: 0.40
+              cost_billion: 8
+          - key: deflect
+            label: "Intentar desviación Δv ahora"
+            effects:
+              success_prob: 0.15
+              saved_on_success_pct: 0.95
+              saved_on_fail_pct: 0.10
+              cost_billion: 2
+          - key: shelters
+            label: "Construir refugios"
+            effects:
+              saved_pct: 0.55
+              cost_billion: 4
+
+    questions:
+      - id: q_kepler_01
+        type: "concepto"
+        difficulty: 2
+        tags: ["órbita","kepler"]
+        prompt: "¿Qué elemento determina principalmente el tamaño de la elipse?"
+        choices:
+          - { key: a,  label: "Eje semimayor (a)", correct: true }
+          - { key: e,  label: "Excentricidad (e)" }
+          - { key: i,  label: "Inclinación (i)" }
+          - { key: H,  label: "Magnitud absoluta (H)" }
+        feedback:
+          a: "Correcto. a define el tamaño; e define la forma."
+          default: "a es el tamaño; e la forma; i la inclinación; H el brillo."
+
+      - id: q_energy_02
+        type: "cálculo"
+        difficulty: 3
+        tags: ["impacto","energía"]
+        params:
+          diameter_m: 120
+          density_kg_m3: 3000
+          velocity_km_s: 20
+        prompt_i18n: "game.q.energy.prompt"
+        choices:
+          - { key: c1, label: "~1e16 J" }
+          - { key: c2, label: "~1e18 J", correct: true }
+          - { key: c3, label: "~1e20 J" }
+        feedback:
+          correct: "E≈1/2 m v^2 con m derivada de densidad y volumen."
+          wrong:   "Verifica unidades: v en m/s, m en kg."
+
+      - id: q_inclination_03
+        type: "concepto"
+        difficulty: 1
+        tags: ["órbita"]
+        prompt: "La inclinación (i) se mide con respecto a…"
+        choices:
+          - { key: ecliptic, label: "El plano eclíptico", correct: true }
+          - { key: equator,  label: "El ecuador terrestre" }
+          - { key: meridian, label: "El meridiano local" }
+        feedback:
+          ecliptic: "Correcto: i usa la eclíptica como plano de referencia."
+          default: "La inclinación se mide respecto a la eclíptica."
+
+      - id: q_tnt_05
+        type: "cálculo"
+        difficulty: 2
+        tags: ["impacto","energía"]
+        prompt: "1 kilotón de TNT ≈ 4.184×10^12 J. ~1e18 J equivale aproximadamente a…"
+        choices:
+          - { key: 200kt,    label: "~200 kt" }
+          - { key: 20000kt,  label: "~20,000 kt (20 Mt)", correct: true }
+          - { key: 2kt,      label: "~2 kt" }
+        feedback:
+          correct: "~1e18 J ≈ 2.4×10^5 kt ≈ 240 Mt; respuesta del orden de decenas de Mt."
+          default: "Convierte Joules a kt usando 4.184e12 J por kt."
+
+      - id: q_delta_v_06
+        type: "escenario"
+        difficulty: 4
+        tags: ["mitigación","delta-v"]
+        prompt: "Con ~5 años de antelación, un Δv de pocos mm/s produce una desviación del orden de…"
+        choices:
+          - { key: meters,    label: "Metros" }
+          - { key: kilometers,label: "Kilómetros", correct: true }
+          - { key: microns,   label: "Micrómetros" }
+        feedback:
+          kilometers: "Un pequeño Δv durante años se acumula a miles de km."
+          default: "El tiempo amplifica pequeños Δv."
+
+      - id: q_albedo_07
+        type: "concepto"
+        difficulty: 2
+        tags: ["fotometría"]
+        prompt: "La magnitud absoluta (H) junto con el albedo se usa para estimar…"
+        choices:
+          - { key: size,  label: "Tamaño/diámetro", correct: true }
+          - { key: mass,  label: "Masa directamente" }
+          - { key: speed, label: "Velocidad orbital" }
+        feedback:
+          size: "H+albedo → diámetro; la masa requiere suposiciones de densidad."
+          default: "H mide el brillo; el albedo permite inferir el tamaño."
+
+      - id: q_density_08
+        type: "cálculo"
+        difficulty: 3
+        tags: ["densidad","masa"]
+        prompt: "Un cuerpo rocoso de 200 m (ρ≈3000 kg/m³) tiene una masa aproximada de…"
+        choices:
+          - { key: e10, label: "~1e10 kg" }
+          - { key: e11, label: "~1e11 kg" }
+          - { key: e13, label: "~1e13 kg", correct: true }
+        feedback:
+          correct: "Volumen ~(4/3)π(100 m)^3 ≈ 4.19e6 m³; m≈ρV → del orden de 10^12–10^13 kg."
+          default: "Se busca orden de magnitud."
+
+      - id: q_evac_09
+        type: "escenario"
+        difficulty: 2
+        tags: ["mitigación","evacuación"]
+        prompt: "Ciudad costera, baja elevación; aviso de 3 días. La mayor reducción de víctimas proviene típicamente de:"
+        choices:
+          - { key: shelters, label: "Construir refugios ahora" }
+          - { key: evac,     label: "Evacuar zonas vulnerables", correct: true }
+          - { key: nothing,  label: "No hacer nada" }
+        feedback:
+          evac: "Aviso corto → evacuación dirigida es más efectiva."
+          default: "Depende de la logística y el tiempo disponible."
+
+      - id: q_entry_angle_10
+        type: "concepto"
+        difficulty: 3
+        tags: ["entrada"]
+        prompt: "Ángulos de entrada más superficiales tienden a…"
+        choices:
+          - { key: airburst, label: "Aumentar la probabilidad de explosión aérea", correct: true }
+          - { key: bounce,   label: "Garantizar que rebote al espacio" }
+          - { key: crater,   label: "Siempre crear cráteres más grandes" }
+        feedback:
+          airburst: "Entradas poco profundas depositan más energía en el aire."
+          default: "La geometría de entrada afecta la deposición de energía."
+
+      - id: q_fragmentation_11
+        type: "concepto"
+        difficulty: 2
+        tags: ["entrada","materiales"]
+        prompt: "Comparados con los asteroides metálicos, los rocosos tienden más a:"
+        choices:
+          - { key: frag, label: "Fragmentarse/explotar en la atmósfera", correct: true }
+          - { key: deny, label: "Resistir la ablación" }
+          - { key: none, label: "No verse afectados por la entrada" }
+        feedback:
+          frag: "La resistencia del material importa; los cuerpos rocosos se fragmentan más fácilmente."
+          default: "La composición influye en el comportamiento atmosférico."
