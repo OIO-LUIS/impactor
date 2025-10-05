@@ -1,0 +1,73 @@
+name: Test GitHub Actions Setup
+
+# This workflow can be run manually to test the setup
+on:
+  workflow_dispatch:
+  push:
+    branches: [ test-github-actions ]
+
+env:
+  PROJECT_ID: meteor-madness-app
+  REGION: us-central1
+
+jobs:
+  test-setup:
+    name: Test GitHub Actions Configuration
+    runs-on: ubuntu-latest
+    
+    permissions:
+      contents: read
+      id-token: write
+
+    steps:
+    - name: Checkout code
+      uses: actions/checkout@v4
+
+    - name: Test authentication
+      uses: google-github-actions/auth@v2
+      with:
+        credentials_json: ${{ secrets.GCP_SA_KEY }}
+
+    - name: Set up Cloud SDK
+      uses: google-github-actions/setup-gcloud@v2
+      with:
+        project_id: ${{ env.PROJECT_ID }}
+
+    - name: Test gcloud access
+      run: |
+        echo "Testing gcloud configuration..."
+        gcloud config list
+        echo ""
+        
+        echo "Testing project access..."
+        gcloud projects describe ${{ env.PROJECT_ID }}
+        echo ""
+        
+        echo "Testing Cloud Run access..."
+        gcloud run services list --region=${{ env.REGION }}
+        echo ""
+        
+        echo "Testing Artifact Registry access..."
+        gcloud artifacts repositories list --location=${{ env.REGION }}
+        echo ""
+        
+        echo "Testing Secret Manager access..."
+        gcloud secrets list --limit=5
+        echo ""
+        
+        echo "✅ All tests passed! GitHub Actions is properly configured."
+
+    - name: Create setup summary
+      run: |
+        echo "## ✅ GitHub Actions Setup Test Results" >> $GITHUB_STEP_SUMMARY
+        echo "" >> $GITHUB_STEP_SUMMARY
+        echo "All authentication and permission tests passed successfully!" >> $GITHUB_STEP_SUMMARY
+        echo "" >> $GITHUB_STEP_SUMMARY
+        echo "### Verified Access:" >> $GITHUB_STEP_SUMMARY
+        echo "- ✅ Google Cloud authentication" >> $GITHUB_STEP_SUMMARY
+        echo "- ✅ Project access (${{ env.PROJECT_ID }})" >> $GITHUB_STEP_SUMMARY
+        echo "- ✅ Cloud Run permissions" >> $GITHUB_STEP_SUMMARY
+        echo "- ✅ Artifact Registry permissions" >> $GITHUB_STEP_SUMMARY
+        echo "- ✅ Secret Manager permissions" >> $GITHUB_STEP_SUMMARY
+        echo "" >> $GITHUB_STEP_SUMMARY
+        echo "Your GitHub Actions deployment workflow is ready to use! 🚀" >> $GITHUB_STEP_SUMMARY
