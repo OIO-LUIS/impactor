@@ -100,4 +100,10 @@ Rails.application.configure do
   # ]
   # Skip DNS rebinding protection for the default health check endpoint.
   # config.host_authorization = { exclude: ->(request) { request.path == "/up" } }
+
+  # Asset resolution fix
+  config.assets.unknown_asset_fallback = false
+
+  # Asset resolution fix
+  config.assets.precompile += %w( controllers/*.js services/**/*.js vendors/**/*.js )
 end

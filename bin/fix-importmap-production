@@ -1,0 +1,123 @@
+#!/usr/bin/env ruby
+
+# Quick fix for importmap asset resolution in production
+puts "🔧 Fixing importmap production asset resolution..."
+
+# Check current importmap configuration
+puts "\n📋 Current importmap.rb configuration:"
+importmap_content = File.read("config/importmap.rb")
+puts importmap_content
+
+puts "\n🔍 Checking if pin_all_from is working correctly..."
+
+# The issue is that pin_all_from might not be resolving digested assets in production
+# Let's check if we need to add explicit pins for controllers
+
+controllers_dir = "app/javascript/controllers"
+if Dir.exist?(controllers_dir)
+  controllers = Dir.glob("#{controllers_dir}/*_controller.js").map do |file|
+    File.basename(file, '.js')
+  end
+  
+  puts "✅ Found #{controllers.size} controllers:"
+  controllers.each { |c| puts "  - #{c}" }
+  
+  # Check if they're already explicitly pinned
+  needs_explicit_pins = []
+  controllers.each do |controller|
+    unless importmap_content.include?("pin \"controllers/#{controller}\"")
+      needs_explicit_pins << controller
+    end
+  end
+  
+  if needs_explicit_pins.any?
+    puts "\n⚠️  The following controllers need explicit pins:"
+    needs_explicit_pins.each { |c| puts "  - controllers/#{c}" }
+    
+    puts "\n🔧 Adding explicit controller pins to importmap.rb..."
+    
+    # Backup original file
+    backup_file = "config/importmap.rb.backup.#{Time.now.to_i}"
+    File.write(backup_file, importmap_content)
+    puts "📦 Backup saved: #{backup_file}"
+    
+    # Add explicit pins after the pin_all_from line
+    new_content = importmap_content.dup
+    
+    # Find the line with pin_all_from
+    lines = new_content.split("\n")
+    pin_all_index = lines.find_index { |line| line.include?('pin_all_from "app/javascript/controllers"') }
+    
+    if pin_all_index
+      # Add explicit pins after pin_all_from
+      explicit_pins = needs_explicit_pins.map do |controller|
+        "pin \"controllers/#{controller}\""
+      end
+      
+      # Insert after pin_all_from line
+      lines.insert(pin_all_index + 1, "", "# Explicit controller pins for production compatibility")
+      explicit_pins.each { |pin| lines.insert(pin_all_index + 3, pin) }
+      
+      new_content = lines.join("\n")
+      File.write("config/importmap.rb", new_content)
+      
+      puts "✅ Added explicit pins to importmap.rb"
+      puts "\nAdded pins:"
+      explicit_pins.each { |pin| puts "  #{pin}" }
+    else
+      puts "❌ Could not find pin_all_from line in importmap.rb"
+    end
+  else
+    puts "✅ All controllers already have explicit pins"
+  end
+else
+  puts "❌ Controllers directory not found"
+end
+
+# Alternative fix: Ensure assets are properly precompiled with correct resolution
+puts "\n🏗️  Alternative fix: Force asset precompilation with explicit resolution..."
+
+# Check if we need to modify production.rb for better asset resolution
+production_config = File.read("config/environments/production.rb")
+
+fixes_needed = []
+
+unless production_config.include?("config.assets.unknown_asset_fallback = false")
+  fixes_needed << "config.assets.unknown_asset_fallback = false"
+end
+
+unless production_config.include?("config.assets.precompile")
+  fixes_needed << "config.assets.precompile += %w( controllers/*.js services/**/*.js vendors/**/*.js )"
+end
+
+if fixes_needed.any?
+  puts "\n🔧 Additional production.rb fixes needed:"
+  fixes_needed.each { |fix| puts "  - #{fix}" }
+  
+  # Add fixes to production.rb
+  backup_prod = "config/environments/production.rb.backup.#{Time.now.to_i}"
+  File.write(backup_prod, production_config)
+  puts "📦 Production config backup: #{backup_prod}"
+  
+  # Find where to insert new config
+  lines = production_config.split("\n")
+  end_index = lines.rindex { |line| line.strip == "end" }
+  
+  if end_index
+    fixes_needed.each do |fix|
+      lines.insert(end_index, "", "  # Asset resolution fix", "  #{fix}")
+      end_index += 3
+    end
+    
+    File.write("config/environments/production.rb", lines.join("\n"))
+    puts "✅ Updated production.rb with asset fixes"
+  end
+end
+
+puts "\n🚀 Next steps:"
+puts "1. Commit changes: git add -A && git commit -m 'Fix importmap asset resolution in production'"
+puts "2. Push to deploy: git push origin master"
+puts "3. Monitor logs for asset 404 errors after deployment"
+puts "4. Test in browser: Check developer console for asset loading"
+
+puts "\n✅ Importmap production fix completed!"
