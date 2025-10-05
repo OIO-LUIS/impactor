@@ -1,0 +1,142 @@
+<div class="info-modal">
+
+  <section class="info-hero">
+    <div class="info-hero__icon">🪨</div>
+    <div class="info-hero__text">
+      <h3 class="info-hero__title"><%= t("info.intro.title") %></h3>
+      <p class="info-hero__lead"><%= t("info.intro.body_html") %></p>
+    </div>
+  </section>
+
+  <div class="info-grid">
+
+    <section class="info-card">
+      <header class="info-card__head">
+        <div class="info-card__icon">📏</div>
+        <h4 class="info-card__title"><%= t("info.sizes.title") %></h4>
+      </header>
+
+      <ul class="info-list info-list--check">
+        <li><%= t("info.sizes.micro") %></li>
+        <li><%= t("info.sizes.small") %></li>
+        <li><%= t("info.sizes.medium") %></li>
+        <li><%= t("info.sizes.large") %></li>
+      </ul>
+
+      <div class="info-sep"></div>
+
+      <p class="info-text"><%= t("info.composition.summary_html") %></p>
+      <div class="info-badges">
+        <span class="info-badge info-badge--stony"><%= t("info.composition.stony") %></span>
+        <span class="info-badge info-badge--iron"><%= t("info.composition.iron") %></span>
+        <span class="info-badge info-badge--mix"><%= t("info.composition.stony_iron") %></span>
+      </div>
+    </section>
+
+    <section class="info-card">
+      <header class="info-card__head">
+        <div class="info-card__icon">🛰️</div>
+        <h4 class="info-card__title"><%= t("info.neo.title") %></h4>
+      </header>
+
+      <p class="info-text"><%= t("info.neo.def_html") %></p>
+      <ul class="info-list">
+        <li><span class="info-chip">NEO</span> <%= t("info.neo.criteria_neo") %></li>
+        <li><span class="info-chip info-chip--warn">PHA</span> <%= t("info.neo.criteria_pha") %></li>
+      </ul>
+    </section>
+
+    <section class="info-card">
+      <header class="info-card__head">
+        <div class="info-card__icon">🔭</div>
+        <h4 class="info-card__title"><%= t("info.detection.title") %></h4>
+      </header>
+
+      <ul class="info-steps">
+        <li>
+          <span class="info-step__dot"></span>
+          <div class="info-step__body"><%= t("info.detection.surveys") %></div>
+        </li>
+        <li>
+          <span class="info-step__dot"></span>
+          <div class="info-step__body"><%= t("info.detection.followup") %></div>
+        </li>
+        <li>
+          <span class="info-step__dot"></span>
+          <div class="info-step__body"><%= t("info.detection.orbits") %></div>
+        </li>
+      </ul>
+    </section>
+
+    <section class="info-card">
+      <header class="info-card__head">
+        <div class="info-card__icon">💥</div>
+        <h4 class="info-card__title"><%= t("info.effects.title") %></h4>
+      </header>
+
+      <ul class="info-scale">
+        <li><span class="dot dot--tiny"></span><%= t("info.effects.tiny") %></li>
+        <li><span class="dot dot--city"></span><%= t("info.effects.city") %></li>
+        <li><span class="dot dot--regional"></span><%= t("info.effects.regional") %></li>
+        <li><span class="dot dot--global"></span><%= t("info.effects.global") %></li>
+      </ul>
+    </section>
+
+    <section class="info-card info-card--line">
+      <header class="info-card__head">
+        <div class="info-card__icon">📚</div>
+        <h4 class="info-card__title"><%= t("info.cases.title") %></h4>
+      </header>
+
+      <ul class="info-timeline">
+        <li>
+          <span class="info-timeline__dot"></span>
+          <div class="info-timeline__body"><%= t("info.cases.chelyabinsk_html") %></div>
+        </li>
+        <li>
+          <span class="info-timeline__dot"></span>
+          <div class="info-timeline__body"><%= t("info.cases.tunguska_html") %></div>
+        </li>
+        <li>
+          <span class="info-timeline__dot"></span>
+          <div class="info-timeline__body"><%= t("info.cases.chicxulub_html") %></div>
+        </li>
+      </ul>
+    </section>
+
+    <section class="info-card">
+      <header class="info-card__head">
+        <div class="info-card__icon">🛡️</div>
+        <h4 class="info-card__title"><%= t("info.mitigation.title") %></h4>
+      </header>
+
+      <ul class="info-list info-list--bullets">
+        <li><%= t("info.mitigation.kinetic") %></li>
+        <li><%= t("info.mitigation.ablation") %></li>
+        <li><%= t("info.mitigation.gravity") %></li>
+        <li><%= t("info.mitigation.nuclear") %></li>
+      </ul>
+
+      <div class="info-callout">
+        <span class="info-callout__icon">⏳</span>
+        <div class="info-callout__text"><%= t("info.mitigation.note_html") %></div>
+      </div>
+    </section>
+
+    <section class="info-card">
+      <header class="info-card__head">
+        <div class="info-card__icon">🧭</div>
+        <h4 class="info-card__title"><%= t("info.howto.title") %></h4>
+      </header>
+
+      <ol class="info-ol">
+        <li><%= t("info.howto.pick_neo") %></li>
+        <li><%= t("info.howto.set_params") %></li>
+        <li><%= t("info.howto.run") %></li>
+        <li><%= t("info.howto.read_results") %></li>
+        <li><%= t("info.howto.try_mitigation") %></li>
+      </ol>
+    </section>
+
+  </div>
+</div>

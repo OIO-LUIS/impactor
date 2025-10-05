@@ -26,9 +26,9 @@
       <span class="settings-label"><%= t('settings.links.game') %></span>
     </a>
 
-    <a href="#" role="menuitem" class="settings-item">
+    <%= link_to open_modal_path(key: "info"),role: "menuitem",class: "settings-item",data: { turbo_method: :post, turbo_stream: true } do %>
       <span class="material-icons-outlined" aria-hidden="true">info</span>
       <span class="settings-label"><%= t('settings.links.info') %></span>
-    </a>
+    <% end %>
   </div>
 </div>

@@ -10,6 +10,10 @@ Rails.application.routes.draw do
     root "home#index"
 
   end
+  resource :modal, only: [] do
+    post :open
+    post :close
+  end
 
     # NEO Browser API routes (date search only)
   get  "/neos/feed", to: "neos#feed"
