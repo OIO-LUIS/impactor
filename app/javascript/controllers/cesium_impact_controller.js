@@ -224,8 +224,7 @@ export default class extends Controller {
     if (this.currentView === this.VIEW_MODES.HELIOCENTRIC) {
       this.setupHeliocentricView()
     } else {
-      this.geocentricView.setupEarth()
-      this.geocentricView.loadGeography(this.worldUrlValue)
+      // Geocentric view setup is done on-demand during simulation
     }
 
     this.animate = this.animate.bind(this)
@@ -314,13 +313,13 @@ export default class extends Controller {
   setupScene() {
     this.scene = new THREE.Scene()
 
-    // Only add fog for geocentric view
+    // Only add fog for geocentric view - adjusted to not interfere with camera
     if (this.currentView === this.VIEW_MODES.GEOCENTRIC) {
-      this.scene.fog = new THREE.Fog(0x000011, this.EARTH_R * 2, this.EARTH_R * 20)
+      this.scene.fog = new THREE.Fog(0x000011, this.EARTH_R * 5, this.EARTH_R * 50)
     }
 
-    // Set background color
-    this.scene.background = new THREE.Color(0x000011)  // Very dark space
+    // Set background color - pure black for better contrast
+    this.scene.background = new THREE.Color(0x000000)  // Pure black space
 
     console.log("🎬 Scene created")
   }
@@ -375,20 +374,25 @@ export default class extends Controller {
    * - Hemisphere light creates atmospheric effect
    */
   setupLighting() {
-    // Sun light with shadows for depth
-    const sunLight = new THREE.DirectionalLight(0xffffff, 1.5)
+    // Primary sun light with increased intensity
+    const sunLight = new THREE.DirectionalLight(0xffffff, 2.0)  // Increased from 1.5
     sunLight.position.set(this.EARTH_R * 5, this.EARTH_R * 3, this.EARTH_R * 2)
     this.scene.add(sunLight)
 
-    // Ambient light for visibility
-    const ambientLight = new THREE.AmbientLight(0x404060, 0.4)
+    // Secondary light from opposite side for better illumination
+    const backLight = new THREE.DirectionalLight(0x8888ff, 0.8)
+    backLight.position.set(-this.EARTH_R * 3, -this.EARTH_R * 2, -this.EARTH_R * 4)
+    this.scene.add(backLight)
+
+    // Ambient light for visibility - increased intensity
+    const ambientLight = new THREE.AmbientLight(0x404060, 0.6)  // Increased from 0.4
     this.scene.add(ambientLight)
 
-    // Hemisphere light for Earth atmosphere effect
-    const hemiLight = new THREE.HemisphereLight(0x4488ff, 0x224488, 0.3)
+    // Hemisphere light for Earth atmosphere effect - increased intensity
+    const hemiLight = new THREE.HemisphereLight(0x4488ff, 0x224488, 0.5)  // Increased from 0.3
     this.scene.add(hemiLight)
 
-    console.log("💡 Lighting configured")
+    console.log("💡 Enhanced lighting configured")
   }
 
   /**
@@ -915,7 +919,7 @@ export default class extends Controller {
       console.log("  - Entry Track Points:", data.entry_track?.length)
       console.log("Full response:", data)
 
-      this.processSimulationData(data)
+      await this.processSimulationData(data)
 
       // Only start meteor visualization in geocentric view
       if (this.currentView === this.VIEW_MODES.GEOCENTRIC) {
@@ -984,8 +988,22 @@ export default class extends Controller {
    * Setup camera for geocentric view
    */
   setupGeocentricCamera() {
+    const cfg = this.constructor.CONFIG
+
+    // CRITICAL: Update camera projection matrix for Earth-scale distances
+    // This is essential when switching from heliocentric to geocentric view
+    this.camera.near = cfg.CAMERA_NEAR_PLANE || 1000  // 1km minimum
+    this.camera.far = this.EARTH_R * 300  // Must be beyond skybox (200 Earth radii)
+    this.camera.updateProjectionMatrix()  // MUST update after changing near/far
+
+    // Position camera
     this.camera.position.set(0, this.EARTH_R * 2, this.EARTH_R * 3)
     this.camera.lookAt(0, 0, 0)
+
+    console.log("📷 Geocentric camera reconfigured:")
+    console.log("  - Near plane:", this.camera.near)
+    console.log("  - Far plane:", this.camera.far)
+    console.log("  - Position:", this.camera.position)
 
     if (this.controls) {
       this.controls.target.set(0, 0, 0)
@@ -1000,7 +1018,7 @@ export default class extends Controller {
   /**
    * Process impact data for geocentric visualization
    */
-  processGeocentricImpact(data) {
+  async processGeocentricImpact(data) {
     // This will process the impact visualization in geocentric mode
     // Using the existing damage rings and trajectory visualization
 
@@ -1010,14 +1028,14 @@ export default class extends Controller {
 
     // Reprocess the data in geocentric mode
     // This is a simplified approach - in production you'd optimize this
-    this.processSimulationData(data)
+    await this.processSimulationData(data)
   }
 
   /**
    * Main simulation data processor - orchestrates view-specific processing
    * Delegates to specialized managers based on view mode and data type
    */
-  processSimulationData(data) {
+  async processSimulationData(data) {
     console.log("🔄 ═══════════════════════════════════════════════════════")
     console.log("🔄 PROCESSING SIMULATION DATA")
     console.log("🔄 ═══════════════════════════════════════════════════════")
@@ -1032,9 +1050,9 @@ export default class extends Controller {
 
     // Route to appropriate view mode processor
     if (orbitalInfo.hasOrbitalData && this.viewState.isHeliocentric()) {
-      this._processHeliocentricView(data, orbitalInfo)
+      await this._processHeliocentricView(data, orbitalInfo)
     } else {
-      this._processGeocentricView(data)
+      await this._processGeocentricView(data)
     }
   }
 
@@ -1081,11 +1099,23 @@ export default class extends Controller {
 
     const { orbitalElements, encounterTime } = orbitalInfo
 
+    // Extract NEO name from orbital input data
+    let neoName = "NEO"
+    if (this.hasOrbitalInputTarget && this.orbitalInputTarget.value) {
+      try {
+        const neoData = JSON.parse(this.orbitalInputTarget.value)
+        neoName = neoData.name || neoData.designation || "NEO"
+      } catch (e) {
+        console.warn("⚠️ Could not extract NEO name from orbital data")
+      }
+    }
+
     // Create NEO orbit and position at encounter time
     this.heliocentricView.createNeoOrbit(
       orbitalElements,
       encounterTime,
-      (time) => this.positionNeoAtTime(time)
+      (time) => this.positionNeoAtTime(time),
+      neoName
     )
 
     // Update planet positions if provided by backend
@@ -1144,8 +1174,44 @@ export default class extends Controller {
    * Process simulation data for geocentric view
    * @private
    */
-  _processGeocentricView(data) {
+  async _processGeocentricView(data) {
     console.log("🌍 Processing in GEOCENTRIC mode")
+
+    // Switch to geocentric mode
+    this.currentView = this.VIEW_MODES.GEOCENTRIC
+    if (!this.viewState.isGeocentric()) {
+      this.viewState.switchToGeocentric()
+      this.viewState.completeTransition()
+    }
+
+    // Setup geocentric Earth if not already set up
+    if (!this.geocentricView.earthGroup) {
+      console.log("🌍 Setting up geocentric Earth...")
+
+      // Create starfield for visual reference (only if not already created)
+      if (!this.geocentricView.starfield) {
+        this.geocentricView.createStarfield()
+      }
+
+      // Setup Earth
+      this.geocentricView.setupEarth()
+
+      // Load geography if world data URL is available
+      if (this.worldUrlValue) {
+        await this.geocentricView.loadGeography(this.worldUrlValue)
+      }
+
+      // Store reference to earthGroup for easier access
+      this.earthGroup = this.geocentricView.earthGroup
+
+      console.log("🌍 Earth setup complete, earthGroup added to scene:", this.geocentricView.earthGroup !== null)
+    }
+
+    // Always setup camera when switching to geocentric
+    this.setupGeocentricCamera()
+
+    // Force a render to ensure everything is visible
+    this.renderer.render(this.scene, this.camera)
 
     // Handle near-miss flyby
     if (data.near_miss && !data.impact) {
@@ -1303,10 +1369,31 @@ export default class extends Controller {
       return
     }
 
-    // Create meteor
-    this.meteorObject = this.impactViz.createMeteor()
+    // Create meteor with trajectory and diameter
+    const diameter = parseFloat(this.diameterInputTarget.value)
+    this.meteorObject = this.impactViz.createMeteor(this.trajectory, diameter)
 
-    // Position camera behind meteor looking at Earth
+    // Initial camera position to see the whole scene
+    // Position above and to the side of the trajectory start
+    if (this.trajectory && this.trajectory.length > 0) {
+      const startPoint = this.trajectory[0]
+      const cameraDistance = this.EARTH_R * 4
+
+      // Position camera to see both Earth and meteor trajectory
+      this.camera.position.set(
+        startPoint.x * 0.5 + cameraDistance * 0.7,
+        startPoint.y * 0.5 + cameraDistance * 0.5,
+        startPoint.z * 0.5 + cameraDistance * 0.7
+      )
+      this.camera.lookAt(0, 0, 0)
+
+      console.log("  📷 Initial camera position set")
+      console.log("    - Camera pos:", this.camera.position)
+      console.log("    - Looking at Earth center (0,0,0)")
+    }
+
+    // Enable camera following after initial setup
+    this.impactViz.enableCameraFollow()
     this.cameraFollowing = true
     this.controls.enabled = false
 
@@ -1488,14 +1575,16 @@ export default class extends Controller {
       const progress = Math.min(elapsed / this.impactTime, 1)
 
       // Update meteor position
-      this.impactViz.updateMeteorPosition(progress, this.trajectory, this.meteorObject)
+      this.impactViz.updateMeteorPosition(progress)
 
       // Update timeline UI
       this.timelineCtrl.updateTimeline(progress)
 
       // Trigger impact at 100% progress
       if (progress >= 1 && !this.impactOccurred) {
-        this.impactViz.triggerImpact(this.results, parseFloat(this.latInputTarget.value), parseFloat(this.lngInputTarget.value))
+        const impactLat = parseFloat(this.latInputTarget.value)
+        const impactLng = parseFloat(this.lngInputTarget.value)
+        this.impactViz.triggerImpact(impactLat, impactLng, this.results, this.damageRingsData)
         this.impactOccurred = true
       }
 
@@ -1534,6 +1623,16 @@ export default class extends Controller {
 
     // Render scene
     this.renderer.render(this.scene, this.camera)
+
+    // Debug: Log render state once
+    if (!this.renderLogged) {
+      console.log("🎬 Rendering state:")
+      console.log("  - Scene children:", this.scene.children.length)
+      console.log("  - Camera position:", this.camera.position)
+      console.log("  - Camera near/far:", this.camera.near, "/", this.camera.far)
+      console.log("  - Current view:", this.currentView)
+      this.renderLogged = true
+    }
   }
 
 
