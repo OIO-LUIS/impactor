@@ -178,6 +178,32 @@
               </select>
             </div>
 
+            <!-- View Mode Toggle (shown only when NEO with orbital data is selected) -->
+            <div id="view-mode-toggle" style="display: none; margin: 1.5rem 0 1rem 0; padding: 0.8rem; background: rgba(147,180,216,0.1); border: 1px solid rgba(147,180,216,0.2); border-radius: 10px;">
+              <div style="font-size: 0.85rem; font-weight: 600; color: var(--lav); margin-bottom: 0.6rem; text-transform: uppercase; letter-spacing: 0.5px;">
+                Simulation Mode
+              </div>
+              <div class="btn-group">
+                <button type="button"
+                        id="orbital-view-btn"
+                        class="btn btn-primary"
+                        onclick="window.switchToOrbitalView()"
+                        style="font-size: 0.85rem;">
+                  🛰️ Orbital View
+                </button>
+                <button type="button"
+                        id="impact-view-btn"
+                        class="btn btn-secondary"
+                        onclick="window.switchToImpactView()"
+                        style="font-size: 0.85rem;">
+                  💥 Impact View
+                </button>
+              </div>
+              <div style="margin-top: 0.5rem; font-size: 0.75rem; color: rgba(207,214,255,0.6);" id="view-mode-description">
+                View NEO orbit in heliocentric solar system
+              </div>
+            </div>
+
             <button type="submit" class="btn btn-primary" data-cesium-impact-target="simulateBtn">
               <%= t('sidebar.inputs.run') %>
             </button>

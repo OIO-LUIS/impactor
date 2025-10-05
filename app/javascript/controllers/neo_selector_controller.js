@@ -91,6 +91,9 @@ export default class extends Controller {
   populateForm(neo) {
     console.log("📝 NEO Selector: Populating form with:", neo)
 
+    // Expand the inputs accordion section so the form is fully visible
+    this.expandInputsSection()
+
     // Find form inputs using multiple strategies for robustness
     const diameterInput = document.getElementById("diameter_m") ||
                          document.querySelector('[name="diameter_m"]') ||
@@ -154,6 +157,57 @@ export default class extends Controller {
 
     // Show notification
     this.showNotification(neo.name)
+
+    // IMPORTANT: Recalculate accordion height AFTER all content is added
+    // Use setTimeout to ensure DOM has updated
+    setTimeout(() => {
+      this.recalculateAccordionHeight()
+    }, 100)
+  }
+
+  /**
+   * Recalculate the accordion height after content changes
+   */
+  recalculateAccordionHeight() {
+    const accordionContent = document.querySelector('[data-key="inputs"].accordion-content')
+    if (accordionContent && accordionContent.getAttribute('data-open') === 'true') {
+      // Recalculate the scrollHeight now that all content is added
+      accordionContent.style.maxHeight = accordionContent.scrollHeight + 'px'
+      console.log(`  📏 Recalculated accordion height: ${accordionContent.scrollHeight}px`)
+    }
+  }
+
+  /**
+   * Expand the inputs accordion section in the sidebar
+   */
+  expandInputsSection() {
+    console.log("📂 Expanding inputs section...")
+
+    // Find the inputs accordion button and content
+    const accordionButton = document.querySelector('[data-key="inputs"].accordion-header')
+    const accordionContent = document.querySelector('[data-key="inputs"].accordion-content')
+
+    if (accordionButton && accordionContent) {
+      // Set the data attributes to open state
+      accordionContent.setAttribute('data-open', 'true')
+      accordionButton.setAttribute('aria-expanded', 'true')
+
+      // Add the open class (if your CSS uses it)
+      accordionContent.classList.add('open')
+
+      // Set max-height for smooth animation
+      accordionContent.style.maxHeight = accordionContent.scrollHeight + 'px'
+
+      // Rotate chevron
+      const chevron = accordionButton.querySelector('[data-key="inputs"].accordion-chev')
+      if (chevron) {
+        chevron.style.transform = 'rotate(180deg)'
+      }
+
+      console.log("  ✅ Inputs section expanded")
+    } else {
+      console.warn("  ⚠️ Could not find accordion elements")
+    }
   }
 
   /**
@@ -212,32 +266,155 @@ export default class extends Controller {
   }
 
   /**
-   * Switch to orbital mode - hide fields that will be calculated
+   * Switch to orbital mode - show view toggle and default to orbital view
    */
   switchToOrbitalMode() {
-    console.log("🛰️  Switching to ORBITAL MODE - hiding calculated fields")
+    console.log("🛰️  Switching to ORBITAL MODE with view toggle")
 
-    // Find the form groups for calculated parameters
-    const fieldsToHide = [
-      { id: 'lat', label: 'Latitude' },
-      { id: 'lng', label: 'Longitude' },
-      { id: 'impact_angle_deg', label: 'Impact Angle' },
-      { id: 'azimuth_deg', label: 'Approach Azimuth' },
-      { id: 'velocity_kms', label: 'Velocity' }
-    ]
+    // Show the view mode toggle (it's already in the template, just hidden)
+    const viewToggle = document.getElementById('view-mode-toggle')
+    if (viewToggle) {
+      viewToggle.style.display = 'block'
+    }
 
-    fieldsToHide.forEach(field => {
-      const input = document.getElementById(field.id)
+    // Set up global functions for the onclick handlers
+    this.setupGlobalViewFunctions()
+
+    // Default to orbital view (hide impact fields)
+    this.setOrbitalViewUI()
+
+    // Recalculate accordion height after showing view toggle
+    setTimeout(() => {
+      this.recalculateAccordionHeight()
+    }, 50)
+  }
+
+  /**
+   * Set up global functions that the view toggle buttons can call
+   */
+  setupGlobalViewFunctions() {
+    // Store reference to this controller instance
+    const self = this
+
+    // Create global functions for the onclick handlers
+    window.switchToOrbitalView = function() {
+      console.log("🛰️ Global: Switching to orbital view")
+      self.setOrbitalViewUI()
+      self.submitFormForOrbitalView()
+    }
+
+    window.switchToImpactView = function() {
+      console.log("💥 Global: Switching to impact view")
+      self.setImpactViewUI()
+      self.submitFormForImpactView()
+    }
+  }
+
+  /**
+   * Set UI to orbital view state (hide impact fields)
+   */
+  setOrbitalViewUI() {
+    // Hide impact fields
+    const fieldsToHide = ['lat', 'lng', 'impact_angle_deg', 'azimuth_deg', 'velocity_kms']
+    fieldsToHide.forEach(fieldId => {
+      const input = document.getElementById(fieldId)
       if (input) {
-        // Find parent form-group and hide it
         const formGroup = input.closest('.form-group')
-        if (formGroup) {
-          formGroup.style.display = 'none'
-          console.log(`  ✅ Hidden: ${field.label}`)
-        }
+        if (formGroup) formGroup.style.display = 'none'
       }
     })
+
+    // Restore orbital data
+    const orbitalInput = document.getElementById('orbital-data')
+    if (orbitalInput && this.storedOrbitalData && !orbitalInput.value) {
+      orbitalInput.value = this.storedOrbitalData
+    }
+
+    // Update button states
+    const orbitalBtn = document.getElementById('orbital-view-btn')
+    const impactBtn = document.getElementById('impact-view-btn')
+    if (orbitalBtn) {
+      orbitalBtn.className = 'btn btn-primary'
+      orbitalBtn.style.fontSize = '0.85rem'
+    }
+    if (impactBtn) {
+      impactBtn.className = 'btn btn-secondary'
+      impactBtn.style.fontSize = '0.85rem'
+    }
+
+    const description = document.getElementById('view-mode-description')
+    if (description) description.textContent = 'View NEO orbit in heliocentric solar system'
+
+    // Recalculate height after hiding fields
+    setTimeout(() => this.recalculateAccordionHeight(), 50)
   }
+
+  /**
+   * Set UI to impact view state (show impact fields)
+   */
+  setImpactViewUI() {
+    // Show impact fields
+    const fieldsToShow = ['lat', 'lng', 'impact_angle_deg', 'azimuth_deg', 'velocity_kms']
+    fieldsToShow.forEach(fieldId => {
+      const input = document.getElementById(fieldId)
+      if (input) {
+        const formGroup = input.closest('.form-group')
+        if (formGroup) formGroup.style.display = ''
+      }
+    })
+
+    // Store and clear orbital data
+    const orbitalInput = document.getElementById('orbital-data')
+    if (orbitalInput) {
+      if (!this.storedOrbitalData && orbitalInput.value) {
+        this.storedOrbitalData = orbitalInput.value
+      }
+      orbitalInput.value = ''
+    }
+
+    // Update button states
+    const orbitalBtn = document.getElementById('orbital-view-btn')
+    const impactBtn = document.getElementById('impact-view-btn')
+    if (orbitalBtn) {
+      orbitalBtn.className = 'btn btn-secondary'
+      orbitalBtn.style.fontSize = '0.85rem'
+    }
+    if (impactBtn) {
+      impactBtn.className = 'btn btn-primary'
+      impactBtn.style.fontSize = '0.85rem'
+    }
+
+    const description = document.getElementById('view-mode-description')
+    if (description) description.textContent = 'Simulate impact with custom coordinates and parameters'
+
+    // Recalculate height after showing fields
+    setTimeout(() => this.recalculateAccordionHeight(), 50)
+  }
+
+  /**
+   * Submit form for orbital (heliocentric) simulation
+   */
+  submitFormForOrbitalView() {
+    const form = document.querySelector('[data-cesium-impact-target="form"]')
+    if (form) {
+      const submitEvent = new Event('submit', { bubbles: true, cancelable: true })
+      form.dispatchEvent(submitEvent)
+      console.log("✅ Orbital simulation triggered")
+    }
+  }
+
+  /**
+   * Submit form for impact (geocentric) simulation
+   */
+  submitFormForImpactView() {
+    const form = document.querySelector('[data-cesium-impact-target="form"]')
+    if (form) {
+      const submitEvent = new Event('submit', { bubbles: true, cancelable: true })
+      form.dispatchEvent(submitEvent)
+      console.log("✅ Impact simulation triggered")
+    }
+  }
+
 
   /**
    * Switch to manual mode - show all input fields
@@ -258,6 +435,13 @@ export default class extends Controller {
         }
       }
     })
+
+    // Hide view mode toggle (only needed for orbital mode)
+    const viewToggle = document.getElementById('view-mode-toggle')
+    if (viewToggle) {
+      viewToggle.style.display = 'none'
+      console.log("  ✅ Hidden view mode toggle")
+    }
   }
 
   /**
