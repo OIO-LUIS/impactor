@@ -1,19 +1,10 @@
 # Pin npm packages by running ./bin/importmap
 
-pin "application"
+pin "application", preload: true
 pin "@hotwired/turbo-rails", to: "turbo.min.js"
 pin "@hotwired/stimulus", to: "stimulus.min.js"
 pin "@hotwired/stimulus-loading", to: "stimulus-loading.js"
 pin_all_from "app/javascript/controllers", under: "controllers"
-
-# Explicit controller pins for production compatibility
-pin "controllers/neo_selector_controller"
-pin "controllers/neo_browser_controller"
-pin "controllers/impact_controller"
-pin "controllers/hello_controller"
-pin "controllers/earth_controller"
-pin "controllers/cesium_impact_controller"
-pin "controllers/cesium_controller"
 
 pin "three", to: "https://cdn.jsdelivr.net/npm/three@0.161.0/build/three.module.js"
 
