@@ -258,7 +258,18 @@ export default class extends Controller {
     this.updateOrbitalElementsDisplay(neo)
 
     // Hide/disable calculated fields when using orbital mode
-    if (neo.orbital_elements) {
+    // Check if orbital_elements exists AND has valid data
+    const hasOrbitalData = neo.orbital_elements &&
+                          neo.orbital_elements.eccentricity !== null &&
+                          neo.orbital_elements.eccentricity !== undefined
+
+    console.log("🛰️  Orbital data check:", {
+      hasOrbitalElements: !!neo.orbital_elements,
+      hasValidData: hasOrbitalData,
+      orbital_elements: neo.orbital_elements
+    })
+
+    if (hasOrbitalData) {
       this.switchToOrbitalMode()
     } else {
       this.switchToManualMode()
@@ -453,8 +464,25 @@ export default class extends Controller {
 
     if (!neo.orbital_elements) {
       console.log("⚠️  No orbital elements available for this NEO")
+
+      // Show a message explaining why orbit view is not available
       if (orbitalDisplay) {
-        orbitalDisplay.style.display = 'none'
+        orbitalDisplay.style.display = 'block'
+        orbitalDisplay.innerHTML = `
+          <div style="font-size: 0.85rem; font-weight: 600; color: var(--lav); margin-bottom: 0.6rem; text-transform: uppercase; letter-spacing: 0.5px;">
+            Orbital Elements
+          </div>
+          <div style="padding: 0.8rem; background: rgba(255,193,7,0.1); border: 1px solid rgba(255,193,7,0.3); border-radius: 8px; font-size: 0.8rem; color: rgba(255,193,7,0.9);">
+            <div style="display: flex; align-items: center; gap: 0.5rem; margin-bottom: 0.4rem;">
+              <span style="font-size: 1.2rem;">⚠️</span>
+              <span style="font-weight: 600;">Orbit View Unavailable</span>
+            </div>
+            <div style="color: rgba(207,214,255,0.8); font-size: 0.75rem; line-height: 1.4;">
+              NASA SBDB API could not provide Keplerian orbital elements for this NEO.
+              Only Impact View is available with manual parameters.
+            </div>
+          </div>
+        `
       }
       return
     }

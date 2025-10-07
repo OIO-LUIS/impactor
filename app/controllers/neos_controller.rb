@@ -119,8 +119,25 @@ class NeosController < ApplicationController
       neo_info = map_neo_data(neo_data)
 
       # Fetch Keplerian orbital elements from SBDB for accurate trajectory calculation
+      # Try multiple identifiers: neo_id, neo_reference_id, and name
       sbdb = SbdbService.new
+      orbital_elements = nil
+
+      # Try neo_id first
       orbital_elements = sbdb.lookup(sstr: neo_id)
+
+      # If that fails, try neo_reference_id
+      if orbital_elements.nil? && neo_data["neo_reference_id"].present?
+        Rails.logger.info "🔄 Retrying SBDB with neo_reference_id: #{neo_data['neo_reference_id']}"
+        orbital_elements = sbdb.lookup(sstr: neo_data["neo_reference_id"])
+      end
+
+      # If that fails, try name (without parentheses)
+      if orbital_elements.nil? && neo_data["name"].present?
+        clean_name = neo_data["name"].gsub(/[()]/, '').strip
+        Rails.logger.info "🔄 Retrying SBDB with name: #{clean_name}"
+        orbital_elements = sbdb.lookup(sstr: clean_name)
+      end
 
       if orbital_elements
         puts "Orbital elements found for NEO #{neo_id}: #{orbital_elements.inspect}"
@@ -130,7 +147,8 @@ class NeosController < ApplicationController
         Rails.logger.info "   - Semi-major axis: #{orbital_elements[:semi_major_axis_au]} AU"
         Rails.logger.info "   - Inclination: #{orbital_elements[:inclination_deg]}°"
       else
-        Rails.logger.warn "⚠️  No orbital elements available - trajectory will use simplified model"
+        Rails.logger.warn "⚠️  No orbital elements available for #{neo_id} - trajectory will use simplified model"
+        Rails.logger.warn "    Tried: neo_id (#{neo_id}), neo_reference_id (#{neo_data['neo_reference_id']}), name (#{neo_data['name']})"
       end
 
       # Add raw NASA data for scientific reference

@@ -34,32 +34,42 @@ class SbdbService
   # @return [Hash] Orbital elements and physical parameters, or nil if not found
   #
   def lookup(sstr:)
-    Rails.logger.info "📡 SBDB: Fetching orbital elements for #{sstr}"
+    Rails.logger.info "📡 SBDB: Fetching orbital elements for '#{sstr}'"
 
     resp = self.class.get("/sbdb.api", query: { sstr: sstr })
 
     unless resp.code == 200
-      Rails.logger.error "❌ SBDB API error #{resp.code}: #{resp.body}"
+      Rails.logger.error "❌ SBDB API error #{resp.code} for '#{sstr}'"
+      Rails.logger.error "   Response body: #{resp.body[0..500]}" # Log first 500 chars
       return nil
     end
 
     data = resp.parsed_response
 
+    # Check if we got an error response from SBDB
+    if data["code"].present?
+      Rails.logger.warn "⚠️  SBDB returned error code: #{data['code']} for '#{sstr}'"
+      Rails.logger.warn "   Message: #{data['message']}" if data["message"]
+      return nil
+    end
+
     if data["orbit"].nil?
-      Rails.logger.warn "⚠️  No orbital data available for #{sstr}"
+      Rails.logger.warn "⚠️  No orbital data in SBDB response for '#{sstr}'"
+      Rails.logger.warn "   Available keys: #{data.keys.join(', ')}"
       return nil
     end
 
     orbital_elements = parse_orbital_elements(data["orbit"])
 
-    Rails.logger.info "✅ SBDB: Retrieved orbital elements"
+    Rails.logger.info "✅ SBDB: Retrieved orbital elements for '#{sstr}'"
     Rails.logger.info "   - Eccentricity: #{orbital_elements[:eccentricity]}"
     Rails.logger.info "   - Semi-major axis: #{orbital_elements[:semi_major_axis_au]} AU"
     Rails.logger.info "   - Inclination: #{orbital_elements[:inclination_deg]}°"
 
     orbital_elements
   rescue => e
-    Rails.logger.error "❌ SBDB lookup error: #{e.message}"
+    Rails.logger.error "❌ SBDB lookup error for '#{sstr}': #{e.message}"
+    Rails.logger.error "   #{e.backtrace&.first}"
     nil
   end
 
